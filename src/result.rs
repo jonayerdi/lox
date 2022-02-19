@@ -10,6 +10,8 @@ pub type Result<T> = core::result::Result<T, LoxError>;
 pub enum LoxError {
     #[error("[ERROR(IO)] {error}")]
     IO { error: std::io::Error },
+    #[error("[ERROR(SCAN)] {msg} (at {position})")]
+    Scan { msg: String, position: Position },
     #[error("[ERROR(PARSE)] {msg} (at {position})")]
     Parse { msg: String, position: Position },
     #[error("[ERROR] {msg}")]
@@ -19,6 +21,12 @@ pub enum LoxError {
 impl LoxError {
     pub fn io(error: std::io::Error) -> Self {
         Self::IO { error }
+    }
+    pub fn scan<D: Display>(msg: D, position: Position) -> Self {
+        Self::Scan {
+            msg: msg.to_string(),
+            position,
+        }
     }
     pub fn parse<D: Display>(msg: D, position: Position) -> Self {
         Self::Parse {

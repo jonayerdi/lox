@@ -51,7 +51,7 @@ impl<S: Iterator<Item = char>> Scanner<S> {
         ControlFlow::Break(ScannerItem::Token(token, self.source.position()))
     }
     fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem> {
-        ControlFlow::Break(ScannerItem::Error(LoxError::parse(
+        ControlFlow::Break(ScannerItem::Error(LoxError::scan(
             msg,
             self.source.position(),
         )))
