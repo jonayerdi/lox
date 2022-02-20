@@ -1,7 +1,8 @@
 use lox::{
     position::Position,
+    result::LoxError,
     scanner::{Scanner, ScannerItem},
-    token::Token, result::LoxError,
+    token::Token,
 };
 
 use lazy_static::lazy_static;
