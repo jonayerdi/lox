@@ -1,20 +1,10 @@
-#![forbid(unsafe_code)]
-
-mod lox;
-mod parser;
-mod position;
-mod result;
-mod rewind;
-mod scanner;
-mod token;
-
 use std::{
     env,
     fs::File,
     io::{self, Read},
 };
 
-use result::{LoxError, Result};
+use lox::result::{LoxError, Result};
 
 fn run() -> Result<()> {
     let args = env::args().skip(1).collect::<Vec<_>>();
