@@ -2,8 +2,8 @@ use std::fmt::Display;
 
 use crate::rewind::Rewind;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Position(usize, usize);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Position(pub usize, pub usize);
 
 impl Default for Position {
     fn default() -> Self {
@@ -61,7 +61,7 @@ impl<S: Iterator<Item = char>> Iterator for PositionTracker<S> {
                     self.line_lengths.push(self.position.1)
                 }
                 self.position.0 += 1;
-                self.position.1 = 0;
+                self.position.1 = 1;
             } else {
                 self.position.1 += 1;
             }

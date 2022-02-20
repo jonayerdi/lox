@@ -31,7 +31,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ScannerItem {
     Token(Token, Position),
     Error(LoxError),
@@ -39,22 +39,21 @@ pub enum ScannerItem {
 
 pub struct Scanner<S: Iterator<Item = char>> {
     source: PositionTracker<S>,
+    position: Position,
 }
 
 impl<S: Iterator<Item = char>> Scanner<S> {
     pub fn new(source: S) -> Self {
         Self {
             source: PositionTracker::new(source),
+            position: Default::default(),
         }
     }
     fn token(&self, token: Token) -> ControlFlow<ScannerItem> {
-        ControlFlow::Break(ScannerItem::Token(token, self.source.position()))
+        ControlFlow::Break(ScannerItem::Token(token, self.position))
     }
     fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem> {
-        ControlFlow::Break(ScannerItem::Error(LoxError::scan(
-            msg,
-            self.source.position(),
-        )))
+        ControlFlow::Break(ScannerItem::Error(LoxError::scan(msg, self.position)))
     }
     fn try_match(&mut self, expected: char) -> bool {
         if let Some(c) = self.source.next() {
@@ -90,7 +89,6 @@ impl<S: Iterator<Item = char>> Scanner<S> {
                     break self.error("Reached EOF in match_string before string termination");
                 }
                 Some('"') => {
-                    self.source.rewind('"');
                     break self.token(Token::String(string));
                 }
                 Some(c) => string.push(c),
@@ -151,6 +149,7 @@ impl<S: Iterator<Item = char>> Iterator for Scanner<S> {
     type Item = ScannerItem;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            self.position = self.source.position();
             let c0 = self.source.next()?;
             let item = match c0 {
                 // Single-character and no lookahead needed
@@ -219,7 +218,7 @@ impl<S: Iterator<Item = char>> Iterator for Scanner<S> {
                 // Whitespace
                 c if c.is_ascii_whitespace() => ControlFlow::Continue(()),
                 // Invalid character
-                c => self.error(format!("Unexpected character: {c}")),
+                c => self.error(format!("Unexpected character: '{c}'")),
             };
             if let ControlFlow::Break(item) = item {
                 break Some(item);

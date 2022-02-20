@@ -46,3 +46,37 @@ impl From<std::io::Error> for LoxError {
         Self::io(error)
     }
 }
+
+impl PartialEq for LoxError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::IO { error: l_error }, Self::IO { error: r_error }) => {
+                l_error.to_string() == r_error.to_string()
+            }
+            (
+                Self::Scan {
+                    msg: l_msg,
+                    position: l_position,
+                },
+                Self::Scan {
+                    msg: r_msg,
+                    position: r_position,
+                },
+            ) => l_msg == r_msg && l_position == r_position,
+            (
+                Self::Parse {
+                    msg: l_msg,
+                    position: l_position,
+                },
+                Self::Parse {
+                    msg: r_msg,
+                    position: r_position,
+                },
+            ) => l_msg == r_msg && l_position == r_position,
+            (Self::Other { msg: l_msg }, Self::Other { msg: r_msg }) => l_msg == r_msg,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for LoxError {}
