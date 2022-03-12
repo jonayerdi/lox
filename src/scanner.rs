@@ -66,7 +66,7 @@ impl<S: Iterator<Item = char>> Scanner<S> {
         false
     }
     fn advance_until_match(&mut self, expected: char) {
-        while let Some(c) = self.source.next() {
+        for c in self.source.by_ref() {
             if c == expected {
                 return;
             }

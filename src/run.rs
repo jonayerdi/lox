@@ -15,6 +15,6 @@ pub fn run_interactive<R: BufRead, W: Write>(mut input: R, mut output: W) -> Res
     Ok(())
 }
 
-pub fn run<W: Write>(source: &str, output: W) -> Result<()> {
-    Ok(())
+pub fn run<W: Write>(_source: &str, _output: W) -> Result<()> {
+    todo!()
 }
