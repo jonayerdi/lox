@@ -8,7 +8,7 @@ pub enum Expression {
 
 impl Expression {
     pub fn literal(value: LiteralValue) -> Box<Self> {
-        Box::new(Self::Literal(LiteralExpression { value } ))
+        Box::new(Self::Literal(LiteralExpression { value }))
     }
     pub fn grouping(expression: Box<Expression>) -> Box<Self> {
         Box::new(Self::Grouping(GroupingExpression { expression }))
@@ -16,8 +16,16 @@ impl Expression {
     pub fn unary(operator: UnaryOperator, right: Box<Expression>) -> Box<Self> {
         Box::new(Self::Unary(UnaryExpression { operator, right }))
     }
-    pub fn binary(left: Box<Expression>, operator: BinaryOperator, right: Box<Expression>) -> Box<Self> {
-        Box::new(Self::Binary(BinaryExpression { left, operator, right }))
+    pub fn binary(
+        left: Box<Expression>,
+        operator: BinaryOperator,
+        right: Box<Expression>,
+    ) -> Box<Self> {
+        Box::new(Self::Binary(BinaryExpression {
+            left,
+            operator,
+            right,
+        }))
     }
 }
 
