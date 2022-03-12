@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod expression;
 pub mod parser;
 pub mod run;
 pub mod scanner;
