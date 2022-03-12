@@ -31,7 +31,7 @@ pub struct PositionTracker<S: Iterator<Item = char>> {
 impl<S: Iterator<Item = char>> PositionTracker<S> {
     pub fn new(source: S) -> Self {
         Self {
-            source: Rewind::with_capacity(source, 32),
+            source: Rewind::with_capacity(source, 8),
             position: Default::default(),
             line_lengths: Vec::with_capacity(256),
         }
