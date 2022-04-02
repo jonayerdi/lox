@@ -6,21 +6,19 @@ pub enum Expression {
     Binary(BinaryExpression),
 }
 
+pub type Expr = Box<Expression>;
+
 impl Expression {
     pub fn literal(value: LiteralValue) -> Box<Self> {
         Box::new(Self::Literal(LiteralExpression { value }))
     }
-    pub fn grouping(expression: Box<Expression>) -> Box<Self> {
+    pub fn grouping(expression: Expr) -> Box<Self> {
         Box::new(Self::Grouping(GroupingExpression { expression }))
     }
-    pub fn unary(operator: UnaryOperator, right: Box<Expression>) -> Box<Self> {
+    pub fn unary(operator: UnaryOperator, right: Expr) -> Box<Self> {
         Box::new(Self::Unary(UnaryExpression { operator, right }))
     }
-    pub fn binary(
-        left: Box<Expression>,
-        operator: BinaryOperator,
-        right: Box<Expression>,
-    ) -> Box<Self> {
+    pub fn binary(left: Expr, operator: BinaryOperator, right: Expr) -> Box<Self> {
         Box::new(Self::Binary(BinaryExpression {
             left,
             operator,
@@ -60,20 +58,20 @@ pub struct LiteralExpression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupingExpression {
-    pub expression: Box<Expression>,
+    pub expression: Expr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryExpression {
     pub operator: UnaryOperator,
-    pub right: Box<Expression>,
+    pub right: Expr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BinaryExpression {
-    pub left: Box<Expression>,
+    pub left: Expr,
     pub operator: BinaryOperator,
-    pub right: Box<Expression>,
+    pub right: Expr,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
