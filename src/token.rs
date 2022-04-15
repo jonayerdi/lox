@@ -46,6 +46,51 @@ pub enum Token {
     While,
 }
 
+impl Token {
+    pub fn token_type(&self) -> &'static str {
+        match self {
+            Token::LeftParen => "grouping",
+            Token::RightParen => "grouping",
+            Token::LeftBrace => "grouping",
+            Token::RightBrace => "grouping",
+            Token::Comma => "operator",
+            Token::Dot => "operator",
+            Token::Minus => "operator",
+            Token::Plus => "operator",
+            Token::Semicolon => "operator",
+            Token::Slash => "operator",
+            Token::Star => "operator",
+            Token::Bang => "operator",
+            Token::BangEqual => "operator",
+            Token::Equal => "operator",
+            Token::EqualEqual => "operator",
+            Token::Greater => "operator",
+            Token::GreaterEqual => "operator",
+            Token::Less => "operator",
+            Token::LessEqual => "operator",
+            Token::Identifier(_) => "identifier",
+            Token::String(_) => "literal",
+            Token::Number(_) => "literal",
+            Token::And => "keyword",
+            Token::Class => "keyword",
+            Token::Else => "keyword",
+            Token::False => "keyword",
+            Token::Fun => "keyword",
+            Token::For => "keyword",
+            Token::If => "keyword",
+            Token::Nil => "keyword",
+            Token::Or => "keyword",
+            Token::Print => "keyword",
+            Token::Return => "keyword",
+            Token::Super => "keyword",
+            Token::This => "keyword",
+            Token::True => "keyword",
+            Token::Var => "keyword",
+            Token::While => "keyword",
+        }
+    }
+}
+
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

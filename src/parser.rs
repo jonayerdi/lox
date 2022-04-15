@@ -167,7 +167,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
                 Token::False => Ok(Expression::literal(LiteralValue::Boolean(false))),
                 Token::Number(num) => Ok(Expression::literal(LiteralValue::Number(
                     num.parse().map_err(|e| {
-                        self.error(format!("Error parsing \"{num}\" as number: {e}"))
+                        self.error(format!("Error parsing \'{num}\' as number: {e}"))
                     })?,
                 ))),
                 Token::String(s) => Ok(Expression::literal(LiteralValue::String(s.clone()))),
@@ -177,18 +177,23 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
                         if AsRef::<Token>::as_ref(&right_paren) == &Token::RightParen {
                             Ok(Expression::grouping(expr))
                         } else {
-                            Err(self.error(format!("Expected ')' after expression")))
+                            Err(self.error(format!(
+                                "Expected ')' after expression, found {} \'{}\'",
+                                AsRef::<Token>::as_ref(&right_paren).token_type(),
+                                AsRef::<Token>::as_ref(&right_paren)
+                            )))
                         }
                     } else {
                         Err(self.error(format!("Expected ')' after expression")))
                     }
                 }
                 _ => Err(self.error(format!(
-                    "Unexpected token: \"{}\"",
+                    "Expected expression, found {} \'{}\'",
+                    AsRef::<Token>::as_ref(&token).token_type(),
                     AsRef::<Token>::as_ref(&token)
                 ))),
             };
         }
-        Err(self.error(format!("Expected token, found EOF")))
+        Err(self.error(format!("Expected expression, found EOF")))
     }
 }
