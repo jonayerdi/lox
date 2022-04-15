@@ -122,8 +122,8 @@ impl<S: Iterator<Item = char>> Scanner<S> {
             Some(c) => self.source.rewind(c),
             None => {}
         }
-        match number.parse() {
-            Ok(number) => self.token(Token::Number(number)),
+        match number.parse::<f64>() {
+            Ok(_) => self.token(Token::Number(number)),
             Err(error) => self.error(format!("Error parsing \"{number}\" as a number: {error}")),
         }
     }

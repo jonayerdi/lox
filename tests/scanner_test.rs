@@ -17,24 +17,24 @@ lazy_static! {
         (
             format!("1 +1== 2;"),
             vec![
-                ScannerItem::Token(Token::Number(1.0), Position(1, 1)),
+                ScannerItem::Token(Token::Number(format!("1")), Position(1, 1)),
                 ScannerItem::Token(Token::Plus, Position(1, 3)),
-                ScannerItem::Token(Token::Number(1.0), Position(1, 4)),
+                ScannerItem::Token(Token::Number(format!("1")), Position(1, 4)),
                 ScannerItem::Token(Token::EqualEqual, Position(1, 5)),
-                ScannerItem::Token(Token::Number(2.0), Position(1, 8)),
+                ScannerItem::Token(Token::Number(format!("2")), Position(1, 8)),
                 ScannerItem::Token(Token::Semicolon, Position(1, 9)),
             ]
         ),
         (
             format!("1 * 12.5 / 2 > 2;"),
             vec![
-                ScannerItem::Token(Token::Number(1.0), Position(1, 1)),
+                ScannerItem::Token(Token::Number(format!("1")), Position(1, 1)),
                 ScannerItem::Token(Token::Star, Position(1, 3)),
-                ScannerItem::Token(Token::Number(12.5), Position(1, 5)),
+                ScannerItem::Token(Token::Number(format!("12.5")), Position(1, 5)),
                 ScannerItem::Token(Token::Slash, Position(1, 10)),
-                ScannerItem::Token(Token::Number(2.0), Position(1, 12)),
+                ScannerItem::Token(Token::Number(format!("2")), Position(1, 12)),
                 ScannerItem::Token(Token::Greater, Position(1, 14)),
-                ScannerItem::Token(Token::Number(2.0), Position(1, 16)),
+                ScannerItem::Token(Token::Number(format!("2")), Position(1, 16)),
                 ScannerItem::Token(Token::Semicolon, Position(1, 17)),
             ]
         ),
