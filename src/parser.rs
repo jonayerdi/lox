@@ -21,6 +21,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
             positions: Vec::with_capacity(64),
         }
     }
+
     fn next_token(&mut self) -> Option<T> {
         let token = self.source.next();
         if let Some(token) = token.as_ref() {
@@ -28,18 +29,44 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
         }
         token
     }
+
     fn rewind_token(&mut self, token: T) {
         self.positions.pop().expect(
             "Invalid parser state: Tried to call rewind_token, but positions stack is empty",
         );
         self.source.rewind(token)
     }
+
     fn error<D: Display>(&self, msg: D) -> LoxError {
         LoxError::parse(msg, self.positions.last().map(|p| *p).unwrap_or_default())
     }
-    pub fn parse(&mut self) -> Result<Expr, LoxError> {
-        todo!()
+
+    /// Advances the parser to the next statement.
+    ///
+    /// Can be used to keep parsing after an error in order to check the rest of the code.
+    pub fn synchronize(&mut self) {
+        while let Some(token) = self.next_token() {
+            match token.as_ref() {
+                Token::Class
+                | Token::Fun
+                | Token::Var
+                | Token::For
+                | Token::If
+                | Token::While
+                | Token::Print
+                | Token::Return => {
+                    self.rewind_token(token);
+                    break;
+                }
+                _ => continue,
+            }
+        }
     }
+
+    pub fn parse(&mut self) -> Result<Expr, LoxError> {
+        self.expression()
+    }
+
     // GRAMMAR
     // expression     → equality ;
     // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -51,6 +78,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
     pub fn expression(&mut self) -> Result<Expr, LoxError> {
         self.equality()
     }
+
     // equality → comparison ( ( "!=" | "==" ) comparison )* ;
     pub fn equality(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.comparison()?;
@@ -73,6 +101,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
             return Ok(expr);
         }
     }
+
     // comparison → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
     pub fn comparison(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.term()?;
@@ -97,6 +126,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
             return Ok(expr);
         }
     }
+
     // term → factor ( ( "-" | "+" ) factor )* ;
     pub fn term(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.factor()?;
@@ -119,6 +149,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
             return Ok(expr);
         }
     }
+
     // factor → unary ( ( "/" | "*" ) unary )* ;
     pub fn factor(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.unary()?;
@@ -141,11 +172,12 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
             return Ok(expr);
         }
     }
+
     // unary → ( "!" | "-" ) unary | primary ;
     pub fn unary(&mut self) -> Result<Expr, LoxError> {
         if let Some(token) = self.next_token() {
             let operator = match token.as_ref() {
-                Token::Plus => Some(UnaryOperator::Not),
+                Token::Bang => Some(UnaryOperator::Not),
                 Token::Minus => Some(UnaryOperator::Neg),
                 _ => {
                     self.rewind_token(token);
@@ -158,6 +190,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
         }
         self.primary()
     }
+
     // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
     pub fn primary(&mut self) -> Result<Expr, LoxError> {
         if let Some(token) = self.next_token() {

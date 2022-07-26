@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::position::Position;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Single-character tokens
@@ -133,5 +135,38 @@ impl Display for Token {
             Token::Var => write!(f, "var"),
             Token::While => write!(f, "while"),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TokenWithPosition {
+    pub token: Token,
+    pub position: Position,
+}
+
+impl From<(Token, Position)> for TokenWithPosition {
+    fn from(tp: (Token, Position)) -> Self {
+        Self {
+            token: tp.0,
+            position: tp.1,
+        }
+    }
+}
+
+impl From<TokenWithPosition> for (Token, Position) {
+    fn from(tp: TokenWithPosition) -> (Token, Position) {
+        (tp.token, tp.position)
+    }
+}
+
+impl AsRef<Token> for TokenWithPosition {
+    fn as_ref(&self) -> &Token {
+        &self.token
+    }
+}
+
+impl AsRef<Position> for TokenWithPosition {
+    fn as_ref(&self) -> &Position {
+        &self.position
     }
 }

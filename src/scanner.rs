@@ -2,8 +2,8 @@ use std::{collections::HashMap, fmt::Display, ops::ControlFlow};
 
 use crate::{
     position::{Position, PositionTracker},
-    result::LoxError,
-    token::Token,
+    result::{LoxError, Result},
+    token::{Token, TokenWithPosition},
 };
 
 use lazy_static::lazy_static;
@@ -31,11 +31,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, PartialEq)]
-pub enum ScannerItem {
-    Token(Token, Position),
-    Error(LoxError),
-}
+pub type ScannerItem = Result<TokenWithPosition>;
 
 pub struct Scanner<S: Iterator<Item = char>> {
     source: PositionTracker<S>,
@@ -50,10 +46,10 @@ impl<S: Iterator<Item = char>> Scanner<S> {
         }
     }
     fn token(&self, token: Token) -> ControlFlow<ScannerItem> {
-        ControlFlow::Break(ScannerItem::Token(token, self.position))
+        ControlFlow::Break(ScannerItem::Ok((token, self.position).into()))
     }
     fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem> {
-        ControlFlow::Break(ScannerItem::Error(LoxError::scan(msg, self.position)))
+        ControlFlow::Break(ScannerItem::Err(LoxError::scan(msg, self.position)))
     }
     fn try_match(&mut self, expected: char) -> bool {
         if let Some(c) = self.source.next() {

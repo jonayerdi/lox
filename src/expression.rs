@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(LiteralExpression),
@@ -24,6 +26,17 @@ impl Expression {
             operator,
             right,
         }))
+    }
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expression::Literal(expr) => write!(f, "{}", expr),
+            Expression::Grouping(expr) => write!(f, "{}", expr),
+            Expression::Unary(expr) => write!(f, "{}", expr),
+            Expression::Binary(expr) => write!(f, "{}", expr),
+        }
     }
 }
 
@@ -56,15 +69,33 @@ pub struct LiteralExpression {
     pub value: LiteralValue,
 }
 
+impl Display for LiteralExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupingExpression {
     pub expression: Expr,
+}
+
+impl Display for GroupingExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({})", self.expression)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnaryExpression {
     pub operator: UnaryOperator,
     pub right: Expr,
+}
+
+impl Display for UnaryExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.operator, self.right)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -74,10 +105,25 @@ pub struct BinaryExpression {
     pub right: Expr,
 }
 
+impl Display for BinaryExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} {}", self.left, self.operator, self.right)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOperator {
     Not,
     Neg,
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnaryOperator::Not => write!(f, "{}", "!"),
+            UnaryOperator::Neg => write!(f, "{}", "-"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,10 +142,38 @@ pub enum BinaryOperator {
     Div,
 }
 
+impl Display for BinaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BinaryOperator::Eq => write!(f, "{}", "=="),
+            BinaryOperator::Neq => write!(f, "{}", "!="),
+            BinaryOperator::Lt => write!(f, "{}", "<"),
+            BinaryOperator::Leq => write!(f, "{}", "<="),
+            BinaryOperator::Gt => write!(f, "{}", ">"),
+            BinaryOperator::Geq => write!(f, "{}", ">="),
+            BinaryOperator::Add => write!(f, "{}", "+"),
+            BinaryOperator::Sub => write!(f, "{}", "-"),
+            BinaryOperator::Mul => write!(f, "{}", "*"),
+            BinaryOperator::Div => write!(f, "{}", "/"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
     Nil,
     Boolean(bool),
     String(String),
     Number(f64),
+}
+
+impl Display for LiteralValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LiteralValue::Nil => write!(f, "nil"),
+            LiteralValue::Boolean(v) => write!(f, "{}", v),
+            LiteralValue::String(v) => write!(f, "{}", v),
+            LiteralValue::Number(v) => write!(f, "{}", v),
+        }
+    }
 }
