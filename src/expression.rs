@@ -172,7 +172,7 @@ impl Display for LiteralValue {
         match self {
             LiteralValue::Nil => write!(f, "nil"),
             LiteralValue::Boolean(v) => write!(f, "{}", v),
-            LiteralValue::String(v) => write!(f, "{}", v),
+            LiteralValue::String(v) => write!(f, "\"{}\"", v),
             LiteralValue::Number(v) => write!(f, "{}", v),
         }
     }
