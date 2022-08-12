@@ -1,44 +1,47 @@
 use std::fmt::Display;
 
 use crate::{
+    context::Context,
     expression::{BinaryOperator, Expr, Expression, LiteralValue, UnaryOperator},
-    position::Position,
     result::LoxError,
     rewind::Rewind,
-    token::Token,
+    token::{Token, TokenData},
 };
 
 /// Recursive descent parser for Lox grammar
-pub struct Parser<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> {
+pub struct Parser<C: Context, S: Iterator<Item = TokenData<C>>> {
     source: Rewind<S>,
-    positions: Vec<Position>,
+    contexts: Vec<C>,
 }
 
-impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
+impl<C: Context, S: Iterator<Item = TokenData<C>>> Parser<C, S> {
     pub fn new(source: S) -> Self {
         Self {
             source: Rewind::with_capacity(source, 8),
-            positions: Vec::with_capacity(64),
+            contexts: Vec::with_capacity(64),
         }
     }
 
-    fn next_token(&mut self) -> Option<T> {
+    fn next_token(&mut self) -> Option<TokenData<C>> {
         let token = self.source.next();
         if let Some(token) = token.as_ref() {
-            self.positions.push(*AsRef::<Position>::as_ref(token));
+            self.contexts.push(token.context.clone());
         }
         token
     }
 
-    fn rewind_token(&mut self, token: T) {
-        self.positions.pop().expect(
+    fn rewind_token(&mut self, token: TokenData<C>) {
+        self.contexts.pop().expect(
             "Invalid parser state: Tried to call rewind_token, but positions stack is empty",
         );
         self.source.rewind(token)
     }
 
-    fn error<D: Display>(&self, msg: D) -> LoxError {
-        LoxError::parse(msg, self.positions.last().map(|p| *p).unwrap_or_default())
+    fn error<D: Display>(&self, msg: D) -> LoxError<C> {
+        LoxError::parse(
+            msg,
+            self.contexts.last().map(|p| p.clone()).unwrap_or_default(),
+        )
     }
 
     /// Advances the parser to the next statement.
@@ -63,7 +66,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expr, LoxError> {
+    pub fn parse(&mut self) -> Result<Expr, LoxError<C>> {
         self.expression()
     }
 
@@ -75,12 +78,12 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
     // factor         → unary ( ( "/" | "*" ) unary )* ;
     // unary          → ( "!" | "-" ) unary | primary ;
     // primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-    pub fn expression(&mut self) -> Result<Expr, LoxError> {
+    pub fn expression(&mut self) -> Result<Expr, LoxError<C>> {
         self.equality()
     }
 
     // equality → comparison ( ( "!=" | "==" ) comparison )* ;
-    pub fn equality(&mut self) -> Result<Expr, LoxError> {
+    pub fn equality(&mut self) -> Result<Expr, LoxError<C>> {
         let mut expr = self.comparison()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -103,7 +106,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
     }
 
     // comparison → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-    pub fn comparison(&mut self) -> Result<Expr, LoxError> {
+    pub fn comparison(&mut self) -> Result<Expr, LoxError<C>> {
         let mut expr = self.term()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -128,7 +131,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
     }
 
     // term → factor ( ( "-" | "+" ) factor )* ;
-    pub fn term(&mut self) -> Result<Expr, LoxError> {
+    pub fn term(&mut self) -> Result<Expr, LoxError<C>> {
         let mut expr = self.factor()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -151,7 +154,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
     }
 
     // factor → unary ( ( "/" | "*" ) unary )* ;
-    pub fn factor(&mut self) -> Result<Expr, LoxError> {
+    pub fn factor(&mut self) -> Result<Expr, LoxError<C>> {
         let mut expr = self.unary()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -174,7 +177,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
     }
 
     // unary → ( "!" | "-" ) unary | primary ;
-    pub fn unary(&mut self) -> Result<Expr, LoxError> {
+    pub fn unary(&mut self) -> Result<Expr, LoxError<C>> {
         if let Some(token) = self.next_token() {
             let operator = match token.as_ref() {
                 Token::Bang => Some(UnaryOperator::Not),
@@ -192,7 +195,7 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
     }
 
     // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-    pub fn primary(&mut self) -> Result<Expr, LoxError> {
+    pub fn primary(&mut self) -> Result<Expr, LoxError<C>> {
         if let Some(token) = self.next_token() {
             return match token.as_ref() {
                 Token::Nil => Ok(Expression::literal(LiteralValue::Nil)),
@@ -207,13 +210,13 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
                 Token::LeftParen => {
                     let expr = self.expression()?;
                     if let Some(right_paren) = self.next_token() {
-                        if AsRef::<Token>::as_ref(&right_paren) == &Token::RightParen {
+                        if right_paren.as_ref() == &Token::RightParen {
                             Ok(Expression::grouping(expr))
                         } else {
                             Err(self.error(format!(
                                 "Expected ')' after expression, found {} \'{}\'",
-                                AsRef::<Token>::as_ref(&right_paren).token_type(),
-                                AsRef::<Token>::as_ref(&right_paren)
+                                right_paren.as_ref().token_type(),
+                                right_paren.as_ref()
                             )))
                         }
                     } else {
@@ -222,8 +225,8 @@ impl<T: AsRef<Token> + AsRef<Position>, S: Iterator<Item = T>> Parser<T, S> {
                 }
                 _ => Err(self.error(format!(
                     "Expected expression, found {} \'{}\'",
-                    AsRef::<Token>::as_ref(&token).token_type(),
-                    AsRef::<Token>::as_ref(&token)
+                    token.as_ref().token_type(),
+                    token.as_ref()
                 ))),
             };
         }

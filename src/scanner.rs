@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt::Display, ops::ControlFlow};
 
 use crate::{
-    position::{Position, PositionTracker},
+    context::{Context, NoContext, Position, PositionTracker, Range},
     result::{LoxError, Result},
-    token::{Token, TokenWithPosition},
+    token::{Token, TokenData},
 };
 
 use lazy_static::lazy_static;
@@ -31,25 +31,51 @@ lazy_static! {
     };
 }
 
-pub type ScannerItem = Result<TokenWithPosition>;
+pub type ScannerItem<C> = Result<TokenData<C>, C>;
 
-pub struct Scanner<S: Iterator<Item = char>> {
+pub struct Scanner<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> {
     source: PositionTracker<S>,
     position: Position,
+    ctx: F,
 }
 
-impl<S: Iterator<Item = char>> Scanner<S> {
-    pub fn new(source: S) -> Self {
+pub fn with_no_context<S: Iterator<Item = char>>(
+    source: S,
+) -> Scanner<S, NoContext, impl Fn(Position, Position) -> NoContext> {
+    Scanner::new(source, |_begin, _end| NoContext)
+}
+
+pub fn with_positions<S: Iterator<Item = char>>(
+    source: S,
+) -> Scanner<S, Position, impl Fn(Position, Position) -> Position> {
+    Scanner::new(source, |begin, _end| begin)
+}
+
+pub fn with_ranges<S: Iterator<Item = char>>(
+    source: S,
+) -> Scanner<S, Range, impl Fn(Position, Position) -> Range> {
+    Scanner::new(source, |begin, end| Range(begin, end))
+}
+
+impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scanner<S, C, F> {
+    pub fn new(source: S, ctx: F) -> Self {
         Self {
             source: PositionTracker::new(source),
             position: Default::default(),
+            ctx,
         }
     }
-    fn token(&self, token: Token) -> ControlFlow<ScannerItem> {
-        ControlFlow::Break(ScannerItem::Ok((token, self.position).into()))
+    fn token(&self, token: Token) -> ControlFlow<ScannerItem<C>> {
+        ControlFlow::Break(ScannerItem::Ok(TokenData {
+            token,
+            context: (self.ctx)(self.position, self.source.position()),
+        }))
     }
-    fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem> {
-        ControlFlow::Break(ScannerItem::Err(LoxError::scan(msg, self.position)))
+    fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem<C>> {
+        ControlFlow::Break(ScannerItem::Err(LoxError::scan(
+            msg,
+            (self.ctx)(self.position, self.source.position()),
+        )))
     }
     fn try_match(&mut self, expected: char) -> bool {
         if let Some(c) = self.source.next() {
@@ -68,7 +94,7 @@ impl<S: Iterator<Item = char>> Scanner<S> {
             }
         }
     }
-    fn match_string(&mut self) -> ControlFlow<ScannerItem> {
+    fn match_string(&mut self) -> ControlFlow<ScannerItem<C>> {
         if let Some(c) = self.source.next() {
             if c != '"' {
                 return self.error(format!(
@@ -91,7 +117,7 @@ impl<S: Iterator<Item = char>> Scanner<S> {
             }
         }
     }
-    fn match_number(&mut self) -> ControlFlow<ScannerItem> {
+    fn match_number(&mut self) -> ControlFlow<ScannerItem<C>> {
         let mut number = String::with_capacity(32);
         while let Some(c) = self.source.next() {
             match c {
@@ -123,7 +149,7 @@ impl<S: Iterator<Item = char>> Scanner<S> {
             Err(error) => self.error(format!("Error parsing \"{number}\" as a number: {error}")),
         }
     }
-    fn match_identifier(&mut self) -> ControlFlow<ScannerItem> {
+    fn match_identifier(&mut self) -> ControlFlow<ScannerItem<C>> {
         let mut identifier = String::with_capacity(32);
         while let Some(c) = self.source.next() {
             match c {
@@ -141,8 +167,10 @@ impl<S: Iterator<Item = char>> Scanner<S> {
     }
 }
 
-impl<S: Iterator<Item = char>> Iterator for Scanner<S> {
-    type Item = ScannerItem;
+impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Iterator
+    for Scanner<S, C, F>
+{
+    type Item = ScannerItem<C>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             self.position = self.source.position();

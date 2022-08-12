@@ -2,36 +2,36 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
-use crate::position::Position;
+use crate::context::Context;
 
-pub type Result<T> = core::result::Result<T, LoxError>;
+pub type Result<T, C> = core::result::Result<T, LoxError<C>>;
 
 #[derive(Error, Debug)]
-pub enum LoxError {
+pub enum LoxError<C: Context> {
     #[error("[ERROR(IO)] {error}")]
     IO { error: std::io::Error },
-    #[error("[ERROR(SCAN)] {msg} (at {position})")]
-    Scan { msg: String, position: Position },
-    #[error("[ERROR(PARSE)] {msg} (at {position})")]
-    Parse { msg: String, position: Position },
+    #[error("[ERROR(SCAN)] {msg} (at {context})")]
+    Scan { msg: String, context: C },
+    #[error("[ERROR(PARSE)] {msg} (at {context})")]
+    Parse { msg: String, context: C },
     #[error("[ERROR] {msg}")]
     Other { msg: String },
 }
 
-impl LoxError {
+impl<C: Context> LoxError<C> {
     pub fn io(error: std::io::Error) -> Self {
         Self::IO { error }
     }
-    pub fn scan<D: Display>(msg: D, position: Position) -> Self {
+    pub fn scan<D: Display>(msg: D, context: C) -> Self {
         Self::Scan {
             msg: msg.to_string(),
-            position,
+            context,
         }
     }
-    pub fn parse<D: Display>(msg: D, position: Position) -> Self {
+    pub fn parse<D: Display>(msg: D, context: C) -> Self {
         Self::Parse {
             msg: msg.to_string(),
-            position,
+            context,
         }
     }
     pub fn other<D: Display>(msg: D) -> Self {
@@ -41,13 +41,13 @@ impl LoxError {
     }
 }
 
-impl From<std::io::Error> for LoxError {
+impl<C: Context> From<std::io::Error> for LoxError<C> {
     fn from(error: std::io::Error) -> Self {
         Self::io(error)
     }
 }
 
-impl PartialEq for LoxError {
+impl<C: Context> PartialEq for LoxError<C> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::IO { error: l_error }, Self::IO { error: r_error }) => {
@@ -56,27 +56,27 @@ impl PartialEq for LoxError {
             (
                 Self::Scan {
                     msg: l_msg,
-                    position: l_position,
+                    context: l_context,
                 },
                 Self::Scan {
                     msg: r_msg,
-                    position: r_position,
+                    context: r_context,
                 },
-            ) => l_msg == r_msg && l_position == r_position,
+            ) => l_msg == r_msg && l_context == r_context,
             (
                 Self::Parse {
                     msg: l_msg,
-                    position: l_position,
+                    context: l_context,
                 },
                 Self::Parse {
                     msg: r_msg,
-                    position: r_position,
+                    context: r_context,
                 },
-            ) => l_msg == r_msg && l_position == r_position,
+            ) => l_msg == r_msg && l_context == r_context,
             (Self::Other { msg: l_msg }, Self::Other { msg: r_msg }) => l_msg == r_msg,
             _ => false,
         }
     }
 }
 
-impl Eq for LoxError {}
+impl<C: Context> Eq for LoxError<C> {}

@@ -1,6 +1,25 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use crate::rewind::Rewind;
+
+pub trait Context: Default + Clone + Debug + Display + PartialEq + Eq {
+    fn combine(&self, other: &Self) -> Self;
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoContext;
+
+impl Display for NoContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{unknown}}")
+    }
+}
+
+impl Context for NoContext {
+    fn combine(&self, _other: &Self) -> Self {
+        Self
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position(pub usize, pub usize);
@@ -19,6 +38,12 @@ impl Display for Position {
             line = self.0,
             column = self.1
         )
+    }
+}
+
+impl Context for Position {
+    fn combine(&self, _other: &Self) -> Self {
+        *self
     }
 }
 
@@ -67,5 +92,20 @@ impl<S: Iterator<Item = char>> Iterator for PositionTracker<S> {
             }
         }
         next
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Range(pub Position, pub Position);
+
+impl Display for Range {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{begin} : {end}", begin = self.0, end = self.1)
+    }
+}
+
+impl Context for Range {
+    fn combine(&self, other: &Self) -> Self {
+        Range(self.0, other.1)
     }
 }

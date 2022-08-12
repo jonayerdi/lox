@@ -1,14 +1,14 @@
 use lox::{
-    position::Position,
+    context::Position,
     result::LoxError,
-    scanner::{Scanner, ScannerItem},
+    scanner::{self, ScannerItem},
     token::Token,
 };
 
 use lazy_static::lazy_static;
 
 lazy_static! {
-    pub static ref TEST_DATA: Vec<(String, Vec<ScannerItem>)> = vec![
+    pub static ref TEST_DATA: Vec<(String, Vec<ScannerItem<Position>>)> = vec![
         (format!(""), vec![]),
         (
             format!(";"),
@@ -97,7 +97,7 @@ lazy_static! {
 #[test]
 fn test() {
     for (code, expected_items) in TEST_DATA.iter() {
-        let scanned_items = Scanner::new(code.chars()).collect::<Vec<_>>();
+        let scanned_items = scanner::with_positions(code.chars()).collect::<Vec<_>>();
         assert_eq!(
             &scanned_items, expected_items,
             "Unexpected scanner results for the code:\n{code}"

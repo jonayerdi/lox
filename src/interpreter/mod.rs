@@ -4,6 +4,7 @@ pub mod types;
 use thiserror::Error;
 
 use crate::{
+    context::Context,
     expression::{BinaryOperator, Expression, UnaryOperator},
     result::LoxError,
 };
@@ -18,7 +19,7 @@ pub enum InterpreterError {
     Other { msg: String },
 }
 
-impl From<InterpreterError> for LoxError {
+impl<C: Context> From<InterpreterError> for LoxError<C> {
     fn from(error: InterpreterError) -> Self {
         LoxError::other(error)
     }
