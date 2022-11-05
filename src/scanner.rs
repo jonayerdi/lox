@@ -48,13 +48,13 @@ impl<S: Iterator<Item = char>> Scanner<S> {
     fn token(&self, token: TokenValue) -> ControlFlow<ScannerItem> {
         ControlFlow::Break(ScannerItem::Ok(Token {
             value: token,
-            context: TokenContext::new(self.position, self.source.position()),
+            context: TokenContext::new(self.position),
         }))
     }
     fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem> {
         ControlFlow::Break(ScannerItem::Err(LoxError::scan(
             msg,
-            TokenContext::new(self.position, self.source.position()),
+            TokenContext::new(self.position),
         )))
     }
     fn try_match(&mut self, expected: char) -> bool {

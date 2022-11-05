@@ -29,8 +29,8 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         self.source.rewind(token)
     }
 
-    fn error<D: Display>(&self, msg: D, tokens: Vec<Token>) -> LoxError {
-        LoxError::parse(msg, ExpressionContext::new(tokens))
+    fn error<D: Display>(&self, msg: D, token: Option<Token>) -> LoxError {
+        LoxError::parse(msg, ExpressionContext::new(token))
     }
 
     /// Advances the parser to the next statement.
@@ -194,7 +194,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     Ok(num) => Ok(Expression::literal(LiteralValue::Number(num))),
                     Err(e) => Err(self.error(
                         format!("Error parsing \'{num}\' as number: {e}"),
-                        vec![token],
+                        Some(token),
                     )),
                 },
                 TokenValue::String(s) => Ok(Expression::literal(LiteralValue::String(s.clone()))),
@@ -210,11 +210,11 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                     right_paren.value.token_type(),
                                     right_paren.value
                                 ),
-                                vec![token],
+                                Some(token),
                             ))
                         }
                     } else {
-                        Err(self.error(format!("Expected ')' after expression"), vec![token]))
+                        Err(self.error(format!("Expected ')' after expression"), Some(token)))
                     }
                 }
                 _ => Err(self.error(
@@ -223,10 +223,10 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                         token.value.token_type(),
                         token.value
                     ),
-                    vec![token],
+                    Some(token),
                 )),
             };
         }
-        Err(self.error(format!("Expected expression, found EOF"), vec![]))
+        Err(self.error(format!("Expected expression, found EOF"), None))
     }
 }

@@ -91,23 +91,15 @@ impl<S: Iterator<Item = char>> Iterator for PositionTracker<S> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Context {
     pub begin: Position,
-    pub end: Position,
 }
 
 pub const NO_CONTEXT: Context = Context {
     begin: Position(0, 0),
-    end: Position(0, 0),
 };
 
 impl Context {
-    pub const fn new(begin: Position, end: Position) -> Self {
-        Self { begin, end }
-    }
-    pub const fn new_maybe(begin: Option<Position>, end: Option<Position>) -> Self {
-        match (begin, end) {
-            (Some(begin), Some(end)) => Self { begin, end },
-            _ => NO_CONTEXT,
-        }
+    pub const fn new(begin: Position) -> Self {
+        Self { begin }
     }
 }
 
@@ -121,7 +113,7 @@ impl Display for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             &NO_CONTEXT => write!(f, "{{unknown}}"),
-            Self { begin, end } => write!(f, "{begin} : {end}"),
+            Self { begin } => write!(f, "{begin}"),
         }
     }
 }

@@ -1,24 +1,24 @@
 use std::fmt::Display;
 
-use crate::{context::Context, token::Token};
+use crate::{context::NO_CONTEXT, token::Token};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpressionContext {
-    pub tokens: Vec<Token>,
+    pub token: Option<Token>,
 }
 
 impl ExpressionContext {
-    pub const fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens }
+    pub const fn new(token: Option<Token>) -> Self {
+        Self { token }
     }
 }
 
 impl Display for ExpressionContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let begin = self.tokens.iter().map(|t| t.context.begin).min();
-        let end = self.tokens.iter().map(|t| t.context.end).max();
-        let full_context = Context::new_maybe(begin, end);
-        write!(f, "{full_context}")
+        write!(f, "{context}", context = match &self.token {
+            Some(token) => token.context,
+            None => NO_CONTEXT,
+        })
     }
 }
 
