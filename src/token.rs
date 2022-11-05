@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::context::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token {
+pub enum TokenValue {
     // Single-character tokens
     LeftParen,
     RightParen,
@@ -48,112 +48,106 @@ pub enum Token {
     While,
 }
 
-impl Token {
+impl TokenValue {
     pub fn token_type(&self) -> &'static str {
         match self {
-            Token::LeftParen => "grouping",
-            Token::RightParen => "grouping",
-            Token::LeftBrace => "grouping",
-            Token::RightBrace => "grouping",
-            Token::Comma => "operator",
-            Token::Dot => "operator",
-            Token::Minus => "operator",
-            Token::Plus => "operator",
-            Token::Semicolon => "operator",
-            Token::Slash => "operator",
-            Token::Star => "operator",
-            Token::Bang => "operator",
-            Token::BangEqual => "operator",
-            Token::Equal => "operator",
-            Token::EqualEqual => "operator",
-            Token::Greater => "operator",
-            Token::GreaterEqual => "operator",
-            Token::Less => "operator",
-            Token::LessEqual => "operator",
-            Token::Identifier(_) => "identifier",
-            Token::String(_) => "literal",
-            Token::Number(_) => "literal",
-            Token::And => "keyword",
-            Token::Class => "keyword",
-            Token::Else => "keyword",
-            Token::False => "keyword",
-            Token::Fun => "keyword",
-            Token::For => "keyword",
-            Token::If => "keyword",
-            Token::Nil => "keyword",
-            Token::Or => "keyword",
-            Token::Print => "keyword",
-            Token::Return => "keyword",
-            Token::Super => "keyword",
-            Token::This => "keyword",
-            Token::True => "keyword",
-            Token::Var => "keyword",
-            Token::While => "keyword",
+            TokenValue::LeftParen => "grouping",
+            TokenValue::RightParen => "grouping",
+            TokenValue::LeftBrace => "grouping",
+            TokenValue::RightBrace => "grouping",
+            TokenValue::Comma => "operator",
+            TokenValue::Dot => "operator",
+            TokenValue::Minus => "operator",
+            TokenValue::Plus => "operator",
+            TokenValue::Semicolon => "operator",
+            TokenValue::Slash => "operator",
+            TokenValue::Star => "operator",
+            TokenValue::Bang => "operator",
+            TokenValue::BangEqual => "operator",
+            TokenValue::Equal => "operator",
+            TokenValue::EqualEqual => "operator",
+            TokenValue::Greater => "operator",
+            TokenValue::GreaterEqual => "operator",
+            TokenValue::Less => "operator",
+            TokenValue::LessEqual => "operator",
+            TokenValue::Identifier(_) => "identifier",
+            TokenValue::String(_) => "literal",
+            TokenValue::Number(_) => "literal",
+            TokenValue::And => "keyword",
+            TokenValue::Class => "keyword",
+            TokenValue::Else => "keyword",
+            TokenValue::False => "keyword",
+            TokenValue::Fun => "keyword",
+            TokenValue::For => "keyword",
+            TokenValue::If => "keyword",
+            TokenValue::Nil => "keyword",
+            TokenValue::Or => "keyword",
+            TokenValue::Print => "keyword",
+            TokenValue::Return => "keyword",
+            TokenValue::Super => "keyword",
+            TokenValue::This => "keyword",
+            TokenValue::True => "keyword",
+            TokenValue::Var => "keyword",
+            TokenValue::While => "keyword",
         }
     }
 }
 
-impl Display for Token {
+impl Display for TokenValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::LeftParen => write!(f, "("),
-            Token::RightParen => write!(f, ")"),
-            Token::LeftBrace => write!(f, "{{"),
-            Token::RightBrace => write!(f, "}}"),
-            Token::Comma => write!(f, ","),
-            Token::Dot => write!(f, "."),
-            Token::Minus => write!(f, "-"),
-            Token::Plus => write!(f, "+"),
-            Token::Semicolon => write!(f, ";"),
-            Token::Slash => write!(f, "/"),
-            Token::Star => write!(f, "*"),
-            Token::Bang => write!(f, "!"),
-            Token::BangEqual => write!(f, "!="),
-            Token::Equal => write!(f, "="),
-            Token::EqualEqual => write!(f, "=="),
-            Token::Greater => write!(f, ">"),
-            Token::GreaterEqual => write!(f, ">="),
-            Token::Less => write!(f, "<"),
-            Token::LessEqual => write!(f, "<="),
-            Token::Identifier(i) => write!(f, "{}", i),
-            Token::String(s) => write!(f, "\"{}\"", s),
-            Token::Number(n) => write!(f, "{}", n),
-            Token::And => write!(f, "and"),
-            Token::Class => write!(f, "class"),
-            Token::Else => write!(f, "else"),
-            Token::False => write!(f, "false"),
-            Token::Fun => write!(f, "fun"),
-            Token::For => write!(f, "for"),
-            Token::If => write!(f, "if"),
-            Token::Nil => write!(f, "nil"),
-            Token::Or => write!(f, "or"),
-            Token::Print => write!(f, "print"),
-            Token::Return => write!(f, "return"),
-            Token::Super => write!(f, "super"),
-            Token::This => write!(f, "this"),
-            Token::True => write!(f, "true"),
-            Token::Var => write!(f, "var"),
-            Token::While => write!(f, "while"),
+            TokenValue::LeftParen => write!(f, "("),
+            TokenValue::RightParen => write!(f, ")"),
+            TokenValue::LeftBrace => write!(f, "{{"),
+            TokenValue::RightBrace => write!(f, "}}"),
+            TokenValue::Comma => write!(f, ","),
+            TokenValue::Dot => write!(f, "."),
+            TokenValue::Minus => write!(f, "-"),
+            TokenValue::Plus => write!(f, "+"),
+            TokenValue::Semicolon => write!(f, ";"),
+            TokenValue::Slash => write!(f, "/"),
+            TokenValue::Star => write!(f, "*"),
+            TokenValue::Bang => write!(f, "!"),
+            TokenValue::BangEqual => write!(f, "!="),
+            TokenValue::Equal => write!(f, "="),
+            TokenValue::EqualEqual => write!(f, "=="),
+            TokenValue::Greater => write!(f, ">"),
+            TokenValue::GreaterEqual => write!(f, ">="),
+            TokenValue::Less => write!(f, "<"),
+            TokenValue::LessEqual => write!(f, "<="),
+            TokenValue::Identifier(i) => write!(f, "{}", i),
+            TokenValue::String(s) => write!(f, "\"{}\"", s),
+            TokenValue::Number(n) => write!(f, "{}", n),
+            TokenValue::And => write!(f, "and"),
+            TokenValue::Class => write!(f, "class"),
+            TokenValue::Else => write!(f, "else"),
+            TokenValue::False => write!(f, "false"),
+            TokenValue::Fun => write!(f, "fun"),
+            TokenValue::For => write!(f, "for"),
+            TokenValue::If => write!(f, "if"),
+            TokenValue::Nil => write!(f, "nil"),
+            TokenValue::Or => write!(f, "or"),
+            TokenValue::Print => write!(f, "print"),
+            TokenValue::Return => write!(f, "return"),
+            TokenValue::Super => write!(f, "super"),
+            TokenValue::This => write!(f, "this"),
+            TokenValue::True => write!(f, "true"),
+            TokenValue::Var => write!(f, "var"),
+            TokenValue::While => write!(f, "while"),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TokenData<C: Context> {
-    pub token: Token,
+pub struct Token<C: Context> {
+    pub value: TokenValue,
     pub context: C,
 }
 
-impl<C: Context> AsRef<Token> for TokenData<C> {
-    fn as_ref(&self) -> &Token {
-        &self.token
-    }
-}
-
-impl<C: Context> From<(Token, C)> for TokenData<C> {
-    fn from(args: (Token, C)) -> Self {
+impl<C: Context> From<(TokenValue, C)> for Token<C> {
+    fn from(args: (TokenValue, C)) -> Self {
         Self {
-            token: args.0,
+            value: args.0,
             context: args.1,
         }
     }

@@ -3,35 +3,35 @@ use std::{collections::HashMap, fmt::Display, ops::ControlFlow};
 use crate::{
     context::{Context, NoContext, Position, PositionTracker, Range},
     result::{LoxError, Result},
-    token::{Token, TokenData},
+    token::{TokenValue, Token},
 };
 
 use lazy_static::lazy_static;
 
 lazy_static! {
-    pub static ref KEYWORDS: HashMap<&'static str, Token> = {
+    pub static ref KEYWORDS: HashMap<&'static str, TokenValue> = {
         let mut m = HashMap::new();
-        m.insert("and", Token::And);
-        m.insert("class", Token::Class);
-        m.insert("else", Token::Else);
-        m.insert("false", Token::False);
-        m.insert("for", Token::For);
-        m.insert("fun", Token::Fun);
-        m.insert("if", Token::If);
-        m.insert("nil", Token::Nil);
-        m.insert("or", Token::Or);
-        m.insert("print", Token::Print);
-        m.insert("return", Token::Return);
-        m.insert("super", Token::Super);
-        m.insert("this", Token::This);
-        m.insert("true", Token::True);
-        m.insert("var", Token::Var);
-        m.insert("while", Token::While);
+        m.insert("and", TokenValue::And);
+        m.insert("class", TokenValue::Class);
+        m.insert("else", TokenValue::Else);
+        m.insert("false", TokenValue::False);
+        m.insert("for", TokenValue::For);
+        m.insert("fun", TokenValue::Fun);
+        m.insert("if", TokenValue::If);
+        m.insert("nil", TokenValue::Nil);
+        m.insert("or", TokenValue::Or);
+        m.insert("print", TokenValue::Print);
+        m.insert("return", TokenValue::Return);
+        m.insert("super", TokenValue::Super);
+        m.insert("this", TokenValue::This);
+        m.insert("true", TokenValue::True);
+        m.insert("var", TokenValue::Var);
+        m.insert("while", TokenValue::While);
         m
     };
 }
 
-pub type ScannerItem<C> = Result<TokenData<C>, C>;
+pub type ScannerItem<C> = Result<Token<C>, C>;
 
 pub struct Scanner<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> {
     source: PositionTracker<S>,
@@ -65,9 +65,9 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
             ctx,
         }
     }
-    fn token(&self, token: Token) -> ControlFlow<ScannerItem<C>> {
-        ControlFlow::Break(ScannerItem::Ok(TokenData {
-            token,
+    fn token(&self, token: TokenValue) -> ControlFlow<ScannerItem<C>> {
+        ControlFlow::Break(ScannerItem::Ok(Token {
+            value: token,
             context: (self.ctx)(self.position, self.source.position()),
         }))
     }
@@ -111,7 +111,7 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
                     break self.error("Reached EOF in match_string before string termination");
                 }
                 Some('"') => {
-                    break self.token(Token::String(string));
+                    break self.token(TokenValue::String(string));
                 }
                 Some(c) => string.push(c),
             }
@@ -145,7 +145,7 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
             None => {}
         }
         match number.parse::<f64>() {
-            Ok(_) => self.token(Token::Number(number)),
+            Ok(_) => self.token(TokenValue::Number(number)),
             Err(error) => self.error(format!("Error parsing \"{number}\" as a number: {error}")),
         }
     }
@@ -162,7 +162,7 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
         }
         self.token(match KEYWORDS.get(identifier.as_str()) {
             Some(keyword_token) => keyword_token.clone(),
-            None => Token::Identifier(identifier),
+            None => TokenValue::Identifier(identifier),
         })
     }
 }
@@ -177,43 +177,43 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Itera
             let c0 = self.source.next()?;
             let item = match c0 {
                 // Single-character and no lookahead needed
-                '(' => self.token(Token::LeftParen),
-                ')' => self.token(Token::RightParen),
-                '{' => self.token(Token::LeftBrace),
-                '}' => self.token(Token::RightBrace),
-                ',' => self.token(Token::Comma),
-                '.' => self.token(Token::Dot),
-                '-' => self.token(Token::Minus),
-                '+' => self.token(Token::Plus),
-                ';' => self.token(Token::Semicolon),
-                '*' => self.token(Token::Star),
+                '(' => self.token(TokenValue::LeftParen),
+                ')' => self.token(TokenValue::RightParen),
+                '{' => self.token(TokenValue::LeftBrace),
+                '}' => self.token(TokenValue::RightBrace),
+                ',' => self.token(TokenValue::Comma),
+                '.' => self.token(TokenValue::Dot),
+                '-' => self.token(TokenValue::Minus),
+                '+' => self.token(TokenValue::Plus),
+                ';' => self.token(TokenValue::Semicolon),
+                '*' => self.token(TokenValue::Star),
                 // One or two character tokens, lookahead needed
                 '!' => {
                     if self.try_match('=') {
-                        self.token(Token::BangEqual)
+                        self.token(TokenValue::BangEqual)
                     } else {
-                        self.token(Token::Bang)
+                        self.token(TokenValue::Bang)
                     }
                 }
                 '=' => {
                     if self.try_match('=') {
-                        self.token(Token::EqualEqual)
+                        self.token(TokenValue::EqualEqual)
                     } else {
-                        self.token(Token::Equal)
+                        self.token(TokenValue::Equal)
                     }
                 }
                 '<' => {
                     if self.try_match('=') {
-                        self.token(Token::LessEqual)
+                        self.token(TokenValue::LessEqual)
                     } else {
-                        self.token(Token::Less)
+                        self.token(TokenValue::Less)
                     }
                 }
                 '>' => {
                     if self.try_match('=') {
-                        self.token(Token::GreaterEqual)
+                        self.token(TokenValue::GreaterEqual)
                     } else {
-                        self.token(Token::Greater)
+                        self.token(TokenValue::Greater)
                     }
                 }
                 // Division or line comment
@@ -222,7 +222,7 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Itera
                         self.advance_until_match('\n'); // Line comment: Skip until next line
                         ControlFlow::Continue(())
                     } else {
-                        self.token(Token::Slash)
+                        self.token(TokenValue::Slash)
                     }
                 }
                 // String or numeric literals
