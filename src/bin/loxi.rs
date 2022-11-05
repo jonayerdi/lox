@@ -5,12 +5,11 @@ use std::{
 };
 
 use lox::{
-    context::Position,
     interpreter::Interpreter,
     result::{LoxError, Result},
 };
 
-fn run() -> Result<(), Position> {
+fn run() -> Result<()> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match args.len() {
         0 => lox::run_interactive(

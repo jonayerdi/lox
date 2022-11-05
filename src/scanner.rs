@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt::Display, ops::ControlFlow};
 
 use crate::{
-    context::{Context, NoContext, Position, PositionTracker, Range},
+    context::{Position, PositionTracker},
     result::{LoxError, Result},
-    token::{TokenValue, Token},
+    token::{Token, TokenContext, TokenValue},
 };
 
 use lazy_static::lazy_static;
@@ -31,50 +31,30 @@ lazy_static! {
     };
 }
 
-pub type ScannerItem<C> = Result<Token<C>, C>;
+pub type ScannerItem = Result<Token>;
 
-pub struct Scanner<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> {
+pub struct Scanner<S: Iterator<Item = char>> {
     source: PositionTracker<S>,
     position: Position,
-    ctx: F,
 }
 
-pub fn with_no_context<S: Iterator<Item = char>>(
-    source: S,
-) -> Scanner<S, NoContext, impl Fn(Position, Position) -> NoContext> {
-    Scanner::new(source, |_begin, _end| NoContext)
-}
-
-pub fn with_positions<S: Iterator<Item = char>>(
-    source: S,
-) -> Scanner<S, Position, impl Fn(Position, Position) -> Position> {
-    Scanner::new(source, |begin, _end| begin)
-}
-
-pub fn with_ranges<S: Iterator<Item = char>>(
-    source: S,
-) -> Scanner<S, Range, impl Fn(Position, Position) -> Range> {
-    Scanner::new(source, |begin, end| Range(begin, end))
-}
-
-impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scanner<S, C, F> {
-    pub fn new(source: S, ctx: F) -> Self {
+impl<S: Iterator<Item = char>> Scanner<S> {
+    pub fn new(source: S) -> Self {
         Self {
             source: PositionTracker::new(source),
             position: Default::default(),
-            ctx,
         }
     }
-    fn token(&self, token: TokenValue) -> ControlFlow<ScannerItem<C>> {
+    fn token(&self, token: TokenValue) -> ControlFlow<ScannerItem> {
         ControlFlow::Break(ScannerItem::Ok(Token {
             value: token,
-            context: (self.ctx)(self.position, self.source.position()),
+            context: TokenContext::new(self.position, self.source.position()),
         }))
     }
-    fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem<C>> {
+    fn error<D: Display>(&self, msg: D) -> ControlFlow<ScannerItem> {
         ControlFlow::Break(ScannerItem::Err(LoxError::scan(
             msg,
-            (self.ctx)(self.position, self.source.position()),
+            TokenContext::new(self.position, self.source.position()),
         )))
     }
     fn try_match(&mut self, expected: char) -> bool {
@@ -94,7 +74,7 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
             }
         }
     }
-    fn match_string(&mut self) -> ControlFlow<ScannerItem<C>> {
+    fn match_string(&mut self) -> ControlFlow<ScannerItem> {
         if let Some(c) = self.source.next() {
             if c != '"' {
                 return self.error(format!(
@@ -117,7 +97,7 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
             }
         }
     }
-    fn match_number(&mut self) -> ControlFlow<ScannerItem<C>> {
+    fn match_number(&mut self) -> ControlFlow<ScannerItem> {
         let mut number = String::with_capacity(32);
         while let Some(c) = self.source.next() {
             match c {
@@ -149,7 +129,7 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
             Err(error) => self.error(format!("Error parsing \"{number}\" as a number: {error}")),
         }
     }
-    fn match_identifier(&mut self) -> ControlFlow<ScannerItem<C>> {
+    fn match_identifier(&mut self) -> ControlFlow<ScannerItem> {
         let mut identifier = String::with_capacity(32);
         while let Some(c) = self.source.next() {
             match c {
@@ -167,10 +147,8 @@ impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Scann
     }
 }
 
-impl<S: Iterator<Item = char>, C: Context, F: Fn(Position, Position) -> C> Iterator
-    for Scanner<S, C, F>
-{
-    type Item = ScannerItem<C>;
+impl<S: Iterator<Item = char>> Iterator for Scanner<S> {
+    type Item = ScannerItem;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             self.position = self.source.position();

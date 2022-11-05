@@ -2,33 +2,36 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
-use crate::context::Context;
+use crate::{expression::ExpressionContext, token::TokenContext};
 
-pub type Result<T, C> = core::result::Result<T, LoxError<C>>;
+pub type Result<T> = core::result::Result<T, LoxError>;
 
 #[derive(Error, Debug)]
-pub enum LoxError<C: Context> {
+pub enum LoxError {
     #[error("[ERROR(IO)] {error}")]
     IO { error: std::io::Error },
     #[error("[ERROR(SCAN)] {msg} (at {context})")]
-    Scan { msg: String, context: C },
+    Scan { msg: String, context: TokenContext },
     #[error("[ERROR(PARSE)] {msg} (at {context})")]
-    Parse { msg: String, context: C },
+    Parse {
+        msg: String,
+        context: ExpressionContext,
+    },
     #[error("[ERROR] {msg}")]
     Other { msg: String },
 }
 
-impl<C: Context> LoxError<C> {
+impl LoxError {
     pub fn io(error: std::io::Error) -> Self {
         Self::IO { error }
     }
-    pub fn scan<D: Display>(msg: D, context: C) -> Self {
+    pub fn scan<D: Display>(msg: D, context: TokenContext) -> Self {
         Self::Scan {
             msg: msg.to_string(),
             context,
         }
     }
-    pub fn parse<D: Display>(msg: D, context: C) -> Self {
+    pub fn parse<D: Display>(msg: D, context: ExpressionContext) -> Self {
         Self::Parse {
             msg: msg.to_string(),
             context,
@@ -41,13 +44,13 @@ impl<C: Context> LoxError<C> {
     }
 }
 
-impl<C: Context> From<std::io::Error> for LoxError<C> {
+impl From<std::io::Error> for LoxError {
     fn from(error: std::io::Error) -> Self {
         Self::io(error)
     }
 }
 
-impl<C: Context> PartialEq for LoxError<C> {
+impl PartialEq for LoxError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::IO { error: l_error }, Self::IO { error: r_error }) => {
@@ -79,4 +82,4 @@ impl<C: Context> PartialEq for LoxError<C> {
     }
 }
 
-impl<C: Context> Eq for LoxError<C> {}
+impl Eq for LoxError {}

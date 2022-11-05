@@ -1,25 +1,9 @@
-use std::fmt::{Debug, Display};
+use std::{
+    cmp::Ordering,
+    fmt::{Debug, Display},
+};
 
 use crate::rewind::Rewind;
-
-pub trait Context: Default + Clone + Debug + Display + PartialEq + Eq {
-    fn combine(&self, other: &Self) -> Self;
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NoContext;
-
-impl Display for NoContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{unknown}}")
-    }
-}
-
-impl Context for NoContext {
-    fn combine(&self, _other: &Self) -> Self {
-        Self
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position(pub usize, pub usize);
@@ -27,6 +11,21 @@ pub struct Position(pub usize, pub usize);
 impl Default for Position {
     fn default() -> Self {
         Position(1, 1)
+    }
+}
+
+impl PartialOrd for Position {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Position {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.0.cmp(&other.0) {
+            Ordering::Equal => self.1.cmp(&other.1),
+            ord => ord,
+        }
     }
 }
 
@@ -38,12 +37,6 @@ impl Display for Position {
             line = self.0,
             column = self.1
         )
-    }
-}
-
-impl Context for Position {
-    fn combine(&self, _other: &Self) -> Self {
-        *self
     }
 }
 
@@ -95,17 +88,40 @@ impl<S: Iterator<Item = char>> Iterator for PositionTracker<S> {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct Range(pub Position, pub Position);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Context {
+    pub begin: Position,
+    pub end: Position,
+}
 
-impl Display for Range {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{begin} : {end}", begin = self.0, end = self.1)
+pub const NO_CONTEXT: Context = Context {
+    begin: Position(0, 0),
+    end: Position(0, 0),
+};
+
+impl Context {
+    pub const fn new(begin: Position, end: Position) -> Self {
+        Self { begin, end }
+    }
+    pub const fn new_maybe(begin: Option<Position>, end: Option<Position>) -> Self {
+        match (begin, end) {
+            (Some(begin), Some(end)) => Self { begin, end },
+            _ => NO_CONTEXT,
+        }
     }
 }
 
-impl Context for Range {
-    fn combine(&self, other: &Self) -> Self {
-        Range(self.0, other.1)
+impl Default for Context {
+    fn default() -> Self {
+        NO_CONTEXT
+    }
+}
+
+impl Display for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            &NO_CONTEXT => write!(f, "{{unknown}}"),
+            Self { begin, end } => write!(f, "{begin} : {end}"),
+        }
     }
 }

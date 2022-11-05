@@ -1,47 +1,36 @@
 use std::fmt::Display;
 
 use crate::{
-    context::Context,
-    expression::{BinaryOperator, Expr, Expression, LiteralValue, UnaryOperator},
+    expression::{
+        BinaryOperator, Expr, Expression, ExpressionContext, LiteralValue, UnaryOperator,
+    },
     result::LoxError,
     rewind::Rewind,
-    token::{TokenValue, Token},
+    token::{Token, TokenValue},
 };
 
 /// Recursive descent parser for Lox grammar
-pub struct Parser<C: Context, S: Iterator<Item = Token<C>>> {
+pub struct Parser<S: Iterator<Item = Token>> {
     source: Rewind<S>,
-    contexts: Vec<C>,
 }
 
-impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
+impl<S: Iterator<Item = Token>> Parser<S> {
     pub fn new(source: S) -> Self {
         Self {
             source: Rewind::with_capacity(source, 8),
-            contexts: Vec::with_capacity(64),
         }
     }
 
-    fn next_token(&mut self) -> Option<Token<C>> {
-        let token = self.source.next();
-        if let Some(token) = token.as_ref() {
-            self.contexts.push(token.context.clone());
-        }
-        token
+    fn next_token(&mut self) -> Option<Token> {
+        self.source.next()
     }
 
-    fn rewind_token(&mut self, token: Token<C>) {
-        self.contexts.pop().expect(
-            "Invalid parser state: Tried to call rewind_token, but positions stack is empty",
-        );
+    fn rewind_token(&mut self, token: Token) {
         self.source.rewind(token)
     }
 
-    fn error<D: Display>(&self, msg: D) -> LoxError<C> {
-        LoxError::parse(
-            msg,
-            self.contexts.last().map(|p| p.clone()).unwrap_or_default(),
-        )
+    fn error<D: Display>(&self, msg: D, tokens: Vec<Token>) -> LoxError {
+        LoxError::parse(msg, ExpressionContext::new(tokens))
     }
 
     /// Advances the parser to the next statement.
@@ -66,7 +55,7 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn parse(&mut self) -> Result<Expr, LoxError> {
         self.expression()
     }
 
@@ -78,12 +67,12 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
     // factor         → unary ( ( "/" | "*" ) unary )* ;
     // unary          → ( "!" | "-" ) unary | primary ;
     // primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-    pub fn expression(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn expression(&mut self) -> Result<Expr, LoxError> {
         self.equality()
     }
 
     // equality → comparison ( ( "!=" | "==" ) comparison )* ;
-    pub fn equality(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn equality(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.comparison()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -106,7 +95,7 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
     }
 
     // comparison → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-    pub fn comparison(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn comparison(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.term()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -131,7 +120,7 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
     }
 
     // term → factor ( ( "-" | "+" ) factor )* ;
-    pub fn term(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn term(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.factor()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -154,7 +143,7 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
     }
 
     // factor → unary ( ( "/" | "*" ) unary )* ;
-    pub fn factor(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn factor(&mut self) -> Result<Expr, LoxError> {
         let mut expr = self.unary()?;
         loop {
             if let Some(token) = self.next_token() {
@@ -177,7 +166,7 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
     }
 
     // unary → ( "!" | "-" ) unary | primary ;
-    pub fn unary(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn unary(&mut self) -> Result<Expr, LoxError> {
         if let Some(token) = self.next_token() {
             let operator = match token.value {
                 TokenValue::Bang => Some(UnaryOperator::Not),
@@ -195,17 +184,19 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
     }
 
     // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-    pub fn primary(&mut self) -> Result<Expr, LoxError<C>> {
+    pub fn primary(&mut self) -> Result<Expr, LoxError> {
         if let Some(token) = self.next_token() {
-            return match token.value {
+            return match &token.value {
                 TokenValue::Nil => Ok(Expression::literal(LiteralValue::Nil)),
                 TokenValue::True => Ok(Expression::literal(LiteralValue::Boolean(true))),
                 TokenValue::False => Ok(Expression::literal(LiteralValue::Boolean(false))),
-                TokenValue::Number(num) => Ok(Expression::literal(LiteralValue::Number(
-                    num.parse().map_err(|e| {
-                        self.error(format!("Error parsing \'{num}\' as number: {e}"))
-                    })?,
-                ))),
+                TokenValue::Number(num) => match num.parse() {
+                    Ok(num) => Ok(Expression::literal(LiteralValue::Number(num))),
+                    Err(e) => Err(self.error(
+                        format!("Error parsing \'{num}\' as number: {e}"),
+                        vec![token],
+                    )),
+                },
                 TokenValue::String(s) => Ok(Expression::literal(LiteralValue::String(s.clone()))),
                 TokenValue::LeftParen => {
                     let expr = self.expression()?;
@@ -213,23 +204,29 @@ impl<C: Context, S: Iterator<Item = Token<C>>> Parser<C, S> {
                         if right_paren.value == TokenValue::RightParen {
                             Ok(Expression::grouping(expr))
                         } else {
-                            Err(self.error(format!(
-                                "Expected ')' after expression, found {} \'{}\'",
-                                right_paren.value.token_type(),
-                                right_paren.value
-                            )))
+                            Err(self.error(
+                                format!(
+                                    "Expected ')' after expression, found {} \'{}\'",
+                                    right_paren.value.token_type(),
+                                    right_paren.value
+                                ),
+                                vec![token],
+                            ))
                         }
                     } else {
-                        Err(self.error(format!("Expected ')' after expression")))
+                        Err(self.error(format!("Expected ')' after expression"), vec![token]))
                     }
                 }
-                _ => Err(self.error(format!(
-                    "Expected expression, found {} \'{}\'",
-                    token.value.token_type(),
-                    token.value
-                ))),
+                _ => Err(self.error(
+                    format!(
+                        "Expected expression, found {} \'{}\'",
+                        token.value.token_type(),
+                        token.value
+                    ),
+                    vec![token],
+                )),
             };
         }
-        Err(self.error(format!("Expected expression, found EOF")))
+        Err(self.error(format!("Expected expression, found EOF"), vec![]))
     }
 }

@@ -1,5 +1,27 @@
 use std::fmt::Display;
 
+use crate::{context::Context, token::Token};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpressionContext {
+    pub tokens: Vec<Token>,
+}
+
+impl ExpressionContext {
+    pub const fn new(tokens: Vec<Token>) -> Self {
+        Self { tokens }
+    }
+}
+
+impl Display for ExpressionContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let begin = self.tokens.iter().map(|t| t.context.begin).min();
+        let end = self.tokens.iter().map(|t| t.context.end).max();
+        let full_context = Context::new_maybe(begin, end);
+        write!(f, "{full_context}")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(LiteralExpression),
