@@ -1,26 +1,35 @@
 pub mod run;
 pub mod types;
 
+use std::io::{self, Write};
+
 use thiserror::Error;
 
 use crate::{
     expression::{BinaryOperator, Expression, UnaryOperator},
     result::LoxError,
+    statement::Statement,
 };
 
 use self::types::LoxValue;
 
 #[derive(Error, Debug)]
 pub enum InterpreterError {
+    #[error("Error during IO operation: {error}")]
+    IO { error: std::io::Error },
     #[error("Error evaluating expression \"{expression}\": {msg}")]
     Expression { expression: Expression, msg: String },
-    #[error("Error: {msg}")]
-    Other { msg: String },
+}
+
+impl From<io::Error> for InterpreterError {
+    fn from(error: io::Error) -> Self {
+        InterpreterError::IO { error }
+    }
 }
 
 impl From<InterpreterError> for LoxError {
     fn from(error: InterpreterError) -> Self {
-        LoxError::other(error)
+        LoxError::interpret(error)
     }
 }
 
@@ -32,6 +41,28 @@ pub struct Interpreter {}
 impl Interpreter {
     pub fn new() -> Self {
         Self {}
+    }
+
+    pub fn interpret<W: Write>(&mut self, statements: &[Statement], output: &mut W) -> Result<()> {
+        for statement in statements {
+            self.execute_statement(statement, output)?;
+        }
+        Ok(())
+    }
+
+    pub fn execute_statement<W: Write>(&mut self, statement: &Statement, output: &mut W) -> Result<()> {
+        match statement {
+            Statement::Print(print_stmt) => {
+                let value = self.evaluate_expression(&print_stmt.expression)?;
+                writeln!(output, "{}", value)?;
+                Ok(())
+            },
+            Statement::Expression(expr_stmt) => {
+                let _value = self.evaluate_expression(&expr_stmt.expression)?;
+                //writeln!(output, "{}", value)?;
+                Ok(())
+            },
+        }
     }
 
     pub fn evaluate_expression(&mut self, expression: &Expression) -> Result<LoxValue> {

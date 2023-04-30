@@ -26,8 +26,7 @@ pub fn run<W: Write>(interpreter: &mut Interpreter, source: &str, mut output: W)
     let scanner = Scanner::new(source.chars());
     let tokens = scanner.collect::<Result<Vec<_>>>()?;
     let mut parser = Parser::new(tokens.into_iter());
-    let expr = parser.parse()?;
-    let result = interpreter.evaluate_expression(&expr)?;
-    writeln!(output, "{}", result)?;
+    let statements = parser.parse()?;
+    interpreter.interpret(&statements, &mut output)?;
     Ok(())
 }

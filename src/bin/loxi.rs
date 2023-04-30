@@ -23,7 +23,7 @@ fn run() -> Result<()> {
             File::open(filename)?.read_to_string(&mut source)?;
             lox::run(&mut Interpreter::new(), &source, io::stdout().lock())
         }
-        _ => Err(LoxError::other("Usage: loxi [script]")),
+        _ => Err(LoxError::cli("Usage: loxi [script]")),
     }
 }
 

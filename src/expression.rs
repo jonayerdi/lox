@@ -15,10 +15,14 @@ impl ExpressionContext {
 
 impl Display for ExpressionContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{context}", context = match &self.token {
-            Some(token) => token.context,
-            None => NO_CONTEXT,
-        })
+        write!(
+            f,
+            "{context}",
+            context = match &self.token {
+                Some(token) => token.context,
+                None => NO_CONTEXT,
+            }
+        )
     }
 }
 

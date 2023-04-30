@@ -6,6 +6,7 @@ use crate::{
     },
     result::LoxError,
     rewind::Rewind,
+    statement::Statement,
     token::{Token, TokenValue},
 };
 
@@ -55,8 +56,74 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expr, LoxError> {
-        self.expression()
+    // GRAMMAR
+    // program        → statement* EOF ;
+    // statement      → exprStmt | printStmt ;
+    // exprStmt       → expression ";" ;
+    // printStmt      → "print" expression ";" ;
+    pub fn parse(&mut self) -> Result<Vec<Statement>, LoxError> {
+        let mut statements = Vec::new();
+        while let Some(token) = self.next_token() {
+            self.rewind_token(token);
+            statements.push(self.statement()?);
+        }
+        Ok(statements)
+    }
+
+    // statement → exprStmt | printStmt ;
+    pub fn statement(&mut self) -> Result<Statement, LoxError> {
+        match self.next_token() {
+            Some(token) => Ok(match token.value {
+                TokenValue::Print => self.print_statement()?,
+                _ => {
+                    self.rewind_token(token);
+                    self.expression_statement()?
+                }
+            }),
+            None => Err(self.error(format!("Expected statement, found EOF"), None)),
+        }
+    }
+
+    // printStmt      → "print" expression ";" ;
+    pub fn print_statement(&mut self) -> Result<Statement, LoxError> {
+        let value = self.expression()?;
+        match self.next_token() {
+            Some(token) => match token.value {
+                TokenValue::Semicolon => Ok(Statement::print(value)),
+                _ => Err(self.error(
+                    format!(
+                        "Expected semicolon after print statement, found \"{}\"",
+                        token.value
+                    ),
+                    None,
+                )),
+            },
+            None => Err(self.error(
+                format!("Expected semicolon after print statement, found EOF"),
+                None,
+            )),
+        }
+    }
+
+    // exprStmt       → expression ";" ;
+    pub fn expression_statement(&mut self) -> Result<Statement, LoxError> {
+        let value = self.expression()?;
+        match self.next_token() {
+            Some(token) => match token.value {
+                TokenValue::Semicolon => Ok(Statement::expression(value)),
+                _ => Err(self.error(
+                    format!(
+                        "Expected semicolon after expression statement, found \"{}\"",
+                        token.value
+                    ),
+                    None,
+                )),
+            },
+            None => Err(self.error(
+                format!("Expected semicolon after expression statement, found EOF"),
+                None,
+            )),
+        }
     }
 
     // GRAMMAR

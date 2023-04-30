@@ -17,8 +17,10 @@ pub enum LoxError {
         msg: String,
         context: ExpressionContext,
     },
-    #[error("[ERROR] {msg}")]
-    Other { msg: String },
+    #[error("[ERROR(INTERPRET)] {msg}")]
+    Interpret { msg: String },
+    #[error("[ERROR(CLI)] {msg}")]
+    CLI { msg: String },
 }
 
 impl LoxError {
@@ -37,8 +39,13 @@ impl LoxError {
             context,
         }
     }
-    pub fn other<D: Display>(msg: D) -> Self {
-        Self::Other {
+    pub fn interpret<D: Display>(msg: D) -> Self {
+        Self::Interpret {
+            msg: msg.to_string(),
+        }
+    }
+    pub fn cli<D: Display>(msg: D) -> Self {
+        Self::CLI {
             msg: msg.to_string(),
         }
     }
@@ -76,7 +83,8 @@ impl PartialEq for LoxError {
                     context: r_context,
                 },
             ) => l_msg == r_msg && l_context == r_context,
-            (Self::Other { msg: l_msg }, Self::Other { msg: r_msg }) => l_msg == r_msg,
+            (Self::Interpret { msg: l_msg }, Self::Interpret { msg: r_msg }) => l_msg == r_msg,
+            (Self::CLI { msg: l_msg }, Self::CLI { msg: r_msg }) => l_msg == r_msg,
             _ => false,
         }
     }
