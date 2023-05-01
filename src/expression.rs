@@ -30,6 +30,7 @@ impl Display for ExpressionContext {
 pub enum Expression {
     Literal(LiteralExpression),
     Variable(VariableExpression),
+    Assignment(AssignmentExpression),
     Grouping(GroupingExpression),
     Unary(UnaryExpression),
     Binary(BinaryExpression),
@@ -43,6 +44,9 @@ impl Expression {
     }
     pub fn variable(identifier: String) -> Box<Self> {
         Box::new(Self::Variable(VariableExpression { identifier }))
+    }
+    pub fn assignment(identifier: String, value: Expr) -> Box<Self> {
+        Box::new(Self::Assignment(AssignmentExpression { identifier, value }))
     }
     pub fn grouping(expression: Expr) -> Box<Self> {
         Box::new(Self::Grouping(GroupingExpression { expression }))
@@ -64,6 +68,7 @@ impl Display for Expression {
         match self {
             Expression::Literal(expr) => write!(f, "{}", expr),
             Expression::Variable(expr) => write!(f, "{}", expr),
+            Expression::Assignment(expr) => write!(f, "{}", expr),
             Expression::Grouping(expr) => write!(f, "{}", expr),
             Expression::Unary(expr) => write!(f, "{}", expr),
             Expression::Binary(expr) => write!(f, "{}", expr),
@@ -80,6 +85,12 @@ impl From<LiteralExpression> for Expression {
 impl From<VariableExpression> for Expression {
     fn from(expr: VariableExpression) -> Self {
         Expression::Variable(expr)
+    }
+}
+
+impl From<AssignmentExpression> for Expression {
+    fn from(expr: AssignmentExpression) -> Self {
+        Expression::Assignment(expr)
     }
 }
 
@@ -102,6 +113,17 @@ impl From<BinaryExpression> for Expression {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct LiteralExpression {
+    pub value: LiteralValue,
+}
+
+impl Display for LiteralExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct VariableExpression {
     pub identifier: String,
 }
@@ -113,13 +135,14 @@ impl Display for VariableExpression {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LiteralExpression {
-    pub value: LiteralValue,
+pub struct AssignmentExpression {
+    pub identifier: String,
+    pub value: Expr,
 }
 
-impl Display for LiteralExpression {
+impl Display for AssignmentExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value)
+        write!(f, "{} = {}", self.identifier, self.value)
     }
 }
 

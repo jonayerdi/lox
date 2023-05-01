@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 use crate::interpreter::types::LoxValue;
 
@@ -16,5 +16,14 @@ impl Environment {
     }
     pub fn set(&mut self, identifier: impl ToString, value: LoxValue) -> Option<LoxValue> {
         self.variables.insert(identifier.to_string(), value)
+    }
+    pub fn assign(&mut self, identifier: impl ToString, value: LoxValue) -> Result<(), ()> {
+        match self.variables.entry(identifier.to_string()) {
+            Entry::Occupied(mut entry) => {
+                entry.insert(value);
+                Ok(())
+            }
+            _ => Err(()),
+        }
     }
 }

@@ -12,7 +12,7 @@ use crate::{
     statement::Statement,
 };
 
-use self::{types::LoxValue, environment::Environment};
+use self::{environment::Environment, types::LoxValue};
 
 #[derive(Error, Debug)]
 pub enum InterpreterError {
@@ -68,12 +68,15 @@ impl Interpreter {
                 let _value = self.evaluate_expression(&expr_stmt.expression)?;
                 //writeln!(output, "{}", value)?;
                 Ok(())
-            },
+            }
             Statement::Var(var_stmt) => {
-                let value = self.evaluate_expression(&var_stmt.initializer)?;
+                let value = match &var_stmt.initializer {
+                    Some(initializer) => self.evaluate_expression(initializer)?,
+                    None => LoxValue::Nil,
+                };
                 self.global.set(&var_stmt.identifier, value);
                 Ok(())
-            },
+            }
         }
     }
 
@@ -98,10 +101,27 @@ impl Interpreter {
                     Some(value) => Ok(value.clone()),
                     None => Err(InterpreterError::Expression {
                         expression,
-                        msg: format!("Cannot evaluate variable \"{}\"", &variable_expression.identifier),
+                        msg: format!(
+                            "Undefined variable \"{}\"",
+                            &variable_expression.identifier
+                        ),
                     }),
                 }
-            },
+            }
+            Expression::Assignment(assignment_expression) => {
+                let value = self.evaluate_expression(&assignment_expression.value)?;
+                let expression = expression.clone();
+                self.global
+                    .assign(&assignment_expression.identifier, value.clone())
+                    .map(|_| value)
+                    .map_err(|_| InterpreterError::Expression {
+                        expression,
+                        msg: format!(
+                            "Assignment to undefined variable \"{}\"",
+                            &assignment_expression.identifier
+                        ),
+                    })
+            }
             Expression::Grouping(grouping_expression) => {
                 self.evaluate_expression(&grouping_expression.expression)
             }

@@ -75,7 +75,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 _ => {
                     self.rewind_token(token);
                     self.statement()?
-                },
+                }
             }),
             None => Err(self.error(format!("Expected declaration, found EOF"), None)),
         }
@@ -109,7 +109,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 let initializer = self.expression()?;
                 match self.next_token() {
                     Some(token) => match token.value {
-                        TokenValue::Semicolon => Ok(Statement::var(identifier, initializer)),
+                        TokenValue::Semicolon => Ok(Statement::var(identifier, Some(initializer))),
                         _ => Err(self.error(
                             format!(
                                 "Expected semicolon after variable declaration statement, found \"{}\"",
@@ -127,10 +127,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
             Some(Token {
                 value: TokenValue::Semicolon,
                 context: _,
-            }) => Ok(Statement::var(
-                identifier,
-                Expression::literal(LiteralValue::Nil),
-            )),
+            }) => Ok(Statement::var(identifier, None)),
             Some(Token { value, context: _ }) => Err(self.error(
                 format!("Expected semicolon after variable declaration statement, found {value}"),
                 None,
@@ -199,15 +196,42 @@ impl<S: Iterator<Item = Token>> Parser<S> {
     }
 
     // GRAMMAR
-    // expression     → equality ;
+    // expression     → assignment ;
+    // assignment     → IDENTIFIER "=" assignment | equality ;
     // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
     // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
     // term           → factor ( ( "-" | "+" ) factor )* ;
     // factor         → unary ( ( "/" | "*" ) unary )* ;
     // unary          → ( "!" | "-" ) unary | primary ;
-    // primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+    // primary        → IDENTIFIER | NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
     pub fn expression(&mut self) -> Result<Expr, LoxError> {
-        self.equality()
+        self.assignment()
+    }
+
+    // assignment     → IDENTIFIER "=" assignment | equality ;
+    pub fn assignment(&mut self) -> Result<Expr, LoxError> {
+        let expr = self.equality()?;
+        match self.next_token() {
+            Some(token) => match token.value {
+                TokenValue::Equal => {
+                    let value = self.assignment()?;
+                    match expr.as_ref() {
+                        Expression::Variable(var_expr) => {
+                            Ok(Expression::assignment(var_expr.identifier.clone(), value))
+                        }
+                        _ => Err(self.error(
+                            format!("Expected identifier for assignment, found \"{expr}\""),
+                            None,
+                        )),
+                    }
+                }
+                _ => {
+                    self.rewind_token(token);
+                    Ok(expr)
+                }
+            },
+            _ => Ok(expr),
+        }
     }
 
     // equality → comparison ( ( "!=" | "==" ) comparison )* ;

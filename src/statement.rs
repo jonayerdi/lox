@@ -16,7 +16,7 @@ impl Statement {
     pub fn expression(expression: Expr) -> Self {
         Self::Expression(ExpressionStatement { expression })
     }
-    pub fn var(identifier: String, initializer: Expr) -> Self {
+    pub fn var(identifier: String, initializer: Option<Expr>) -> Self {
         Self::Var(VarStatement {
             identifier,
             initializer,
@@ -59,16 +59,18 @@ impl Display for ExpressionStatement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarStatement {
     pub identifier: String,
-    pub initializer: Expr,
+    pub initializer: Option<Expr>,
 }
 
 impl Display for VarStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "var {identifier} = {initializer}",
-            identifier = self.identifier,
-            initializer = self.initializer
-        )
+        match &self.initializer {
+            Some(initializer) => write!(
+                f,
+                "var {identifier} = {initializer}",
+                identifier = self.identifier,
+            ),
+            None => write!(f, "var {identifier}", identifier = self.identifier,),
+        }
     }
 }
