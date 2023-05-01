@@ -57,17 +57,89 @@ impl<S: Iterator<Item = Token>> Parser<S> {
     }
 
     // GRAMMAR
-    // program        → statement* EOF ;
-    // statement      → exprStmt | printStmt ;
-    // exprStmt       → expression ";" ;
-    // printStmt      → "print" expression ";" ;
+    // program        → declaration * EOF ;
     pub fn parse(&mut self) -> Result<Vec<Statement>, LoxError> {
         let mut statements = Vec::new();
         while let Some(token) = self.next_token() {
             self.rewind_token(token);
-            statements.push(self.statement()?);
+            statements.push(self.declaration()?);
         }
         Ok(statements)
+    }
+
+    // declaration    → varDecl | statement ;
+    pub fn declaration(&mut self) -> Result<Statement, LoxError> {
+        match self.next_token() {
+            Some(token) => Ok(match token.value {
+                TokenValue::Var => self.variable_declaration()?,
+                _ => {
+                    self.rewind_token(token);
+                    self.statement()?
+                },
+            }),
+            None => Err(self.error(format!("Expected declaration, found EOF"), None)),
+        }
+    }
+
+    // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+    pub fn variable_declaration(&mut self) -> Result<Statement, LoxError> {
+        let identifier = match self.next_token() {
+            Some(Token {
+                value: TokenValue::Identifier(identifier),
+                context: _,
+            }) => identifier,
+            Some(Token { value, context: _ }) => {
+                return Err(self.error(
+                    format!("Expected identifier after \"var\", found {value}"),
+                    None,
+                ))
+            }
+            None => {
+                return Err(self.error(
+                    format!("Expected identifier after \"var\", found EOF"),
+                    None,
+                ))
+            }
+        };
+        match self.next_token() {
+            Some(Token {
+                value: TokenValue::Equal,
+                context: _,
+            }) => {
+                let initializer = self.expression()?;
+                match self.next_token() {
+                    Some(token) => match token.value {
+                        TokenValue::Semicolon => Ok(Statement::var(identifier, initializer)),
+                        _ => Err(self.error(
+                            format!(
+                                "Expected semicolon after variable declaration statement, found \"{}\"",
+                                token.value
+                            ),
+                            None,
+                        )),
+                    },
+                    None => Err(self.error(
+                        format!("Expected semicolon after variable declaration statement, found EOF"),
+                        None,
+                    )),
+                }
+            }
+            Some(Token {
+                value: TokenValue::Semicolon,
+                context: _,
+            }) => Ok(Statement::var(
+                identifier,
+                Expression::literal(LiteralValue::Nil),
+            )),
+            Some(Token { value, context: _ }) => Err(self.error(
+                format!("Expected semicolon after variable declaration statement, found {value}"),
+                None,
+            )),
+            None => Err(self.error(
+                format!("Expected semicolon after variable declaration statement, found EOF"),
+                None,
+            )),
+        }
     }
 
     // statement → exprStmt | printStmt ;
@@ -250,10 +322,11 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         self.primary()
     }
 
-    // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+    // primary → IDENTIFIER | NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
     pub fn primary(&mut self) -> Result<Expr, LoxError> {
         if let Some(token) = self.next_token() {
             return match &token.value {
+                TokenValue::Identifier(identifier) => Ok(Expression::variable(identifier.clone())),
                 TokenValue::Nil => Ok(Expression::literal(LiteralValue::Nil)),
                 TokenValue::True => Ok(Expression::literal(LiteralValue::Boolean(true))),
                 TokenValue::False => Ok(Expression::literal(LiteralValue::Boolean(false))),

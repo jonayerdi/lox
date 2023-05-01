@@ -1,3 +1,4 @@
+pub mod environment;
 pub mod run;
 pub mod types;
 
@@ -11,7 +12,7 @@ use crate::{
     statement::Statement,
 };
 
-use self::types::LoxValue;
+use self::{types::LoxValue, environment::Environment};
 
 #[derive(Error, Debug)]
 pub enum InterpreterError {
@@ -35,12 +36,14 @@ impl From<InterpreterError> for LoxError {
 
 pub type Result<T> = core::result::Result<T, InterpreterError>;
 
-#[derive(Debug, Clone)]
-pub struct Interpreter {}
+#[derive(Default, Debug, Clone)]
+pub struct Interpreter {
+    pub global: Environment,
+}
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self {}
+        Self::default()
     }
 
     pub fn interpret<W: Write>(&mut self, statements: &[Statement], output: &mut W) -> Result<()> {
@@ -50,16 +53,25 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn execute_statement<W: Write>(&mut self, statement: &Statement, output: &mut W) -> Result<()> {
+    pub fn execute_statement<W: Write>(
+        &mut self,
+        statement: &Statement,
+        output: &mut W,
+    ) -> Result<()> {
         match statement {
             Statement::Print(print_stmt) => {
                 let value = self.evaluate_expression(&print_stmt.expression)?;
                 writeln!(output, "{}", value)?;
                 Ok(())
-            },
+            }
             Statement::Expression(expr_stmt) => {
                 let _value = self.evaluate_expression(&expr_stmt.expression)?;
                 //writeln!(output, "{}", value)?;
+                Ok(())
+            },
+            Statement::Var(var_stmt) => {
+                let value = self.evaluate_expression(&var_stmt.initializer)?;
+                self.global.set(&var_stmt.identifier, value);
                 Ok(())
             },
         }
@@ -79,7 +91,17 @@ impl Interpreter {
         }
         let expression_clone = expression.clone();
         match expression_clone {
-            Expression::Literal(literal_value) => Ok(literal_value.value.into()),
+            Expression::Literal(literal_expression) => Ok(literal_expression.value.into()),
+            Expression::Variable(variable_expression) => {
+                let expression = expression.clone();
+                match self.global.get(&variable_expression.identifier) {
+                    Some(value) => Ok(value.clone()),
+                    None => Err(InterpreterError::Expression {
+                        expression,
+                        msg: format!("Cannot evaluate variable \"{}\"", &variable_expression.identifier),
+                    }),
+                }
+            },
             Expression::Grouping(grouping_expression) => {
                 self.evaluate_expression(&grouping_expression.expression)
             }

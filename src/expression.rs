@@ -29,6 +29,7 @@ impl Display for ExpressionContext {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(LiteralExpression),
+    Variable(VariableExpression),
     Grouping(GroupingExpression),
     Unary(UnaryExpression),
     Binary(BinaryExpression),
@@ -39,6 +40,9 @@ pub type Expr = Box<Expression>;
 impl Expression {
     pub fn literal(value: LiteralValue) -> Box<Self> {
         Box::new(Self::Literal(LiteralExpression { value }))
+    }
+    pub fn variable(identifier: String) -> Box<Self> {
+        Box::new(Self::Variable(VariableExpression { identifier }))
     }
     pub fn grouping(expression: Expr) -> Box<Self> {
         Box::new(Self::Grouping(GroupingExpression { expression }))
@@ -59,6 +63,7 @@ impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Expression::Literal(expr) => write!(f, "{}", expr),
+            Expression::Variable(expr) => write!(f, "{}", expr),
             Expression::Grouping(expr) => write!(f, "{}", expr),
             Expression::Unary(expr) => write!(f, "{}", expr),
             Expression::Binary(expr) => write!(f, "{}", expr),
@@ -69,6 +74,12 @@ impl Display for Expression {
 impl From<LiteralExpression> for Expression {
     fn from(expr: LiteralExpression) -> Self {
         Expression::Literal(expr)
+    }
+}
+
+impl From<VariableExpression> for Expression {
+    fn from(expr: VariableExpression) -> Self {
+        Expression::Variable(expr)
     }
 }
 
@@ -87,6 +98,17 @@ impl From<UnaryExpression> for Expression {
 impl From<BinaryExpression> for Expression {
     fn from(expr: BinaryExpression) -> Self {
         Expression::Binary(expr)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VariableExpression {
+    pub identifier: String,
+}
+
+impl Display for VariableExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.identifier)
     }
 }
 
