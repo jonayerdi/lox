@@ -6,6 +6,7 @@ use crate::expression::Expr;
 pub enum Statement {
     Print(PrintStatement),
     Expression(ExpressionStatement),
+    Block(BlockStatement),
     Var(VarStatement),
 }
 
@@ -15,6 +16,9 @@ impl Statement {
     }
     pub fn expression(expression: Expr) -> Self {
         Self::Expression(ExpressionStatement { expression })
+    }
+    pub fn block(statements: Vec<Statement>) -> Self {
+        Self::Block(BlockStatement { statements })
     }
     pub fn var(identifier: String, initializer: Option<Expr>) -> Self {
         Self::Var(VarStatement {
@@ -29,6 +33,7 @@ impl Display for Statement {
         match self {
             Statement::Print(stmt) => write!(f, "{}", stmt),
             Statement::Expression(stmt) => write!(f, "{}", stmt),
+            Statement::Block(stmt) => write!(f, "{}", stmt),
             Statement::Var(stmt) => write!(f, "{}", stmt),
         }
     }
@@ -42,6 +47,21 @@ pub struct PrintStatement {
 impl Display for PrintStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "print {}", self.expression)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlockStatement {
+    pub statements: Vec<Statement>,
+}
+
+impl Display for BlockStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{\n")?;
+        for statement in &self.statements {
+            write!(f, "{}\n", statement)?;
+        }
+        write!(f, "}}\n")
     }
 }
 

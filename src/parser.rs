@@ -112,14 +112,14 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                         TokenValue::Semicolon => Ok(Statement::var(identifier, Some(initializer))),
                         _ => Err(self.error(
                             format!(
-                                "Expected semicolon after variable declaration statement, found \"{}\"",
+                                "Expected ';' after variable declaration statement, found \"{}\"",
                                 token.value
                             ),
                             None,
                         )),
                     },
                     None => Err(self.error(
-                        format!("Expected semicolon after variable declaration statement, found EOF"),
+                        format!("Expected ';' after variable declaration statement, found EOF"),
                         None,
                     )),
                 }
@@ -129,21 +129,22 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 context: _,
             }) => Ok(Statement::var(identifier, None)),
             Some(Token { value, context: _ }) => Err(self.error(
-                format!("Expected semicolon after variable declaration statement, found {value}"),
+                format!("Expected ';' after variable declaration statement, found {value}"),
                 None,
             )),
             None => Err(self.error(
-                format!("Expected semicolon after variable declaration statement, found EOF"),
+                format!("Expected ';' after variable declaration statement, found EOF"),
                 None,
             )),
         }
     }
 
-    // statement → exprStmt | printStmt ;
+    // statement → exprStmt | printStmt | block ;
     pub fn statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
             Some(token) => Ok(match token.value {
                 TokenValue::Print => self.print_statement()?,
+                TokenValue::LeftBrace => self.block_statement()?,
                 _ => {
                     self.rewind_token(token);
                     self.expression_statement()?
@@ -151,6 +152,24 @@ impl<S: Iterator<Item = Token>> Parser<S> {
             }),
             None => Err(self.error(format!("Expected statement, found EOF"), None)),
         }
+    }
+
+    // block          → "{" declaration* "}" ;
+    pub fn block_statement(&mut self) -> Result<Statement, LoxError> {
+        let mut statements = Vec::with_capacity(16);
+        while let Some(token) = self.next_token() {
+            match token.value {
+                TokenValue::RightBrace => return Ok(Statement::block(statements)),
+                _ => {
+                    self.rewind_token(token);
+                    statements.push(self.declaration()?);
+                },
+            }
+        }
+        Err(self.error(
+            format!("Expected '}}' after block statement, found EOF"),
+            None,
+        ))
     }
 
     // printStmt      → "print" expression ";" ;
@@ -161,14 +180,14 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 TokenValue::Semicolon => Ok(Statement::print(value)),
                 _ => Err(self.error(
                     format!(
-                        "Expected semicolon after print statement, found \"{}\"",
+                        "Expected ';' after print statement, found \"{}\"",
                         token.value
                     ),
                     None,
                 )),
             },
             None => Err(self.error(
-                format!("Expected semicolon after print statement, found EOF"),
+                format!("Expected ';' after print statement, found EOF"),
                 None,
             )),
         }
@@ -182,14 +201,14 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 TokenValue::Semicolon => Ok(Statement::expression(value)),
                 _ => Err(self.error(
                     format!(
-                        "Expected semicolon after expression statement, found \"{}\"",
+                        "Expected ';' after expression statement, found \"{}\"",
                         token.value
                     ),
                     None,
                 )),
             },
             None => Err(self.error(
-                format!("Expected semicolon after expression statement, found EOF"),
+                format!("Expected ';' after expression statement, found EOF"),
                 None,
             )),
         }
@@ -357,7 +376,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 TokenValue::Number(num) => match num.parse() {
                     Ok(num) => Ok(Expression::literal(LiteralValue::Number(num))),
                     Err(e) => Err(self.error(
-                        format!("Error parsing \'{num}\' as number: {e}"),
+                        format!("Error parsing '{num}' as number: {e}"),
                         Some(token),
                     )),
                 },
@@ -370,7 +389,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                         } else {
                             Err(self.error(
                                 format!(
-                                    "Expected ')' after expression, found {} \'{}\'",
+                                    "Expected ')' after expression, found {} '{}'",
                                     right_paren.value.token_type(),
                                     right_paren.value
                                 ),
@@ -383,7 +402,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 }
                 _ => Err(self.error(
                     format!(
-                        "Expected expression, found {} \'{}\'",
+                        "Expected expression, found {} '{}'",
                         token.value.token_type(),
                         token.value
                     ),

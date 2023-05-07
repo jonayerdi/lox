@@ -12,7 +12,7 @@ use crate::{
     statement::Statement,
 };
 
-use self::{environment::Environment, types::LoxValue};
+use self::{environment::Env, types::LoxValue};
 
 #[derive(Error, Debug)]
 pub enum InterpreterError {
@@ -38,7 +38,7 @@ pub type Result<T> = core::result::Result<T, InterpreterError>;
 
 #[derive(Default, Debug, Clone)]
 pub struct Interpreter {
-    pub global: Environment,
+    pub env: Env,
 }
 
 impl Interpreter {
@@ -63,20 +63,28 @@ impl Interpreter {
                 let value = self.evaluate_expression(&print_stmt.expression)?;
                 writeln!(output, "{}", value)?;
                 Ok(())
-            }
+            },
             Statement::Expression(expr_stmt) => {
                 let _value = self.evaluate_expression(&expr_stmt.expression)?;
                 //writeln!(output, "{}", value)?;
                 Ok(())
-            }
+            },
+            Statement::Block(block_stmt) => {
+                self.env.enter();
+                for statement in &block_stmt.statements {
+                    self.execute_statement(statement, output)?;
+                }
+                self.env.exit();
+                Ok(())
+            },
             Statement::Var(var_stmt) => {
                 let value = match &var_stmt.initializer {
                     Some(initializer) => self.evaluate_expression(initializer)?,
                     None => LoxValue::Nil,
                 };
-                self.global.set(&var_stmt.identifier, value);
+                self.env.set(&var_stmt.identifier, value);
                 Ok(())
-            }
+            },
         }
     }
 
@@ -97,7 +105,7 @@ impl Interpreter {
             Expression::Literal(literal_expression) => Ok(literal_expression.value.into()),
             Expression::Variable(variable_expression) => {
                 let expression = expression.clone();
-                match self.global.get(&variable_expression.identifier) {
+                match self.env.get(&variable_expression.identifier) {
                     Some(value) => Ok(value.clone()),
                     None => Err(InterpreterError::Expression {
                         expression,
@@ -111,7 +119,7 @@ impl Interpreter {
             Expression::Assignment(assignment_expression) => {
                 let value = self.evaluate_expression(&assignment_expression.value)?;
                 let expression = expression.clone();
-                self.global
+                self.env
                     .assign(&assignment_expression.identifier, value.clone())
                     .map(|_| value)
                     .map_err(|_| InterpreterError::Expression {
