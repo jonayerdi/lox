@@ -5,14 +5,24 @@ use crate::expression::Expr;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Print(PrintStatement),
+    If(IfStatement),
     Expression(ExpressionStatement),
     Block(BlockStatement),
     Var(VarStatement),
 }
 
+pub type Stmt = Box<Statement>;
+
 impl Statement {
     pub fn print(expression: Expr) -> Self {
         Self::Print(PrintStatement { expression })
+    }
+    pub fn ifelse(condition: Expr, then_branch: Statement, else_branch: Option<Statement>) -> Self {
+        Self::If(IfStatement { 
+            condition,
+            then_branch: Box::new(then_branch),
+            else_branch: else_branch.and_then(|e| Some(Box::new(e))),
+        })
     }
     pub fn expression(expression: Expr) -> Self {
         Self::Expression(ExpressionStatement { expression })
@@ -32,6 +42,7 @@ impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Statement::Print(stmt) => write!(f, "{}", stmt),
+            Statement::If(stmt) => write!(f, "{}", stmt),
             Statement::Expression(stmt) => write!(f, "{}", stmt),
             Statement::Block(stmt) => write!(f, "{}", stmt),
             Statement::Var(stmt) => write!(f, "{}", stmt),
@@ -47,6 +58,23 @@ pub struct PrintStatement {
 impl Display for PrintStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "print {}", self.expression)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IfStatement {
+    pub condition: Expr,
+    pub then_branch: Stmt,
+    pub else_branch: Option<Stmt>,
+}
+
+impl Display for IfStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "if ({}) {}", self.condition, self.then_branch)?;
+        if let Some(else_branch) = &self.else_branch {
+            write!(f, " else {}", else_branch)?;
+        }
+        Ok(())
     }
 }
 

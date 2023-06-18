@@ -139,11 +139,12 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    // statement → exprStmt | printStmt | block ;
+    // statement → exprStmt | ifStmt | printStmt | block ;
     pub fn statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
             Some(token) => Ok(match token.value {
                 TokenValue::Print => self.print_statement()?,
+                TokenValue::If => self.if_statement()?,
                 TokenValue::LeftBrace => self.block_statement()?,
                 _ => {
                     self.rewind_token(token);
@@ -154,25 +155,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    // block          → "{" declaration* "}" ;
-    pub fn block_statement(&mut self) -> Result<Statement, LoxError> {
-        let mut statements = Vec::with_capacity(16);
-        while let Some(token) = self.next_token() {
-            match token.value {
-                TokenValue::RightBrace => return Ok(Statement::block(statements)),
-                _ => {
-                    self.rewind_token(token);
-                    statements.push(self.declaration()?);
-                },
-            }
-        }
-        Err(self.error(
-            format!("Expected '}}' after block statement, found EOF"),
-            None,
-        ))
-    }
-
-    // printStmt      → "print" expression ";" ;
+    // printStmt → "print" expression ";" ;
     pub fn print_statement(&mut self) -> Result<Statement, LoxError> {
         let value = self.expression()?;
         match self.next_token() {
@@ -193,7 +176,79 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    // exprStmt       → expression ";" ;
+    // ifStmt → "if" "(" expression ")" statement ( "else" statement )? ;
+    pub fn if_statement(&mut self) -> Result<Statement, LoxError> {
+        match self.next_token() {
+            Some(token) => match token.value {
+                TokenValue::LeftParen => {
+                    let condition  = self.expression()?;
+                    match self.next_token() {
+                        Some(token) => match token.value {
+                            TokenValue::RightParen => {
+                                let then_branch = self.statement()?;
+                                let token = self.next_token();
+                                let else_branch = match token {
+                                    Some(token) => {
+                                        match token.value {
+                                            TokenValue::Else => Some(self.statement()?),
+                                            _ => {
+                                                self.rewind_token(token);
+                                                None
+                                            }
+                                        }
+                                    }
+                                    _ => None,
+                                };
+                                Ok(Statement::ifelse(condition, then_branch, else_branch))
+                            },
+                            _ => Err(self.error(
+                                format!(
+                                    "Expected ')' after if condition, found \"{}\"",
+                                    token.value
+                                ),
+                                None,
+                            )),
+                        },
+                        None => Err(self.error(
+                            format!("Expected ')' after if condition, found EOF"),
+                            None,
+                        )),
+                    }
+                },
+                _ => Err(self.error(
+                    format!(
+                        "Expected '(' after if, found \"{}\"",
+                        token.value
+                    ),
+                    None,
+                )),
+            },
+            None => Err(self.error(
+                format!("Expected '(' after if, found EOF"),
+                None,
+            )),
+        }
+    }
+
+    // block → "{" declaration* "}" ;
+    pub fn block_statement(&mut self) -> Result<Statement, LoxError> {
+        let mut statements = Vec::with_capacity(16);
+        while let Some(token) = self.next_token() {
+            match token.value {
+                TokenValue::RightBrace => return Ok(Statement::block(statements)),
+                _ => {
+                    self.rewind_token(token);
+                    statements.push(self.declaration()?);
+                },
+            }
+        }
+        Err(self.error(
+            format!("Expected '}}' after block statement, found EOF"),
+            None,
+        ))
+    }
+
+    // exprStmt → expression ";" ;
     pub fn expression_statement(&mut self) -> Result<Statement, LoxError> {
         let value = self.expression()?;
         match self.next_token() {

@@ -18,6 +18,8 @@ use self::{environment::Env, types::LoxValue};
 pub enum InterpreterError {
     #[error("Error during IO operation: {error}")]
     IO { error: std::io::Error },
+    #[error("Error evaluating statement \"{statement}\": {msg}")]
+    Statement { statement: Statement, msg: String },
     #[error("Error evaluating expression \"{expression}\": {msg}")]
     Expression { expression: Expression, msg: String },
 }
@@ -58,10 +60,35 @@ impl Interpreter {
         statement: &Statement,
         output: &mut W,
     ) -> Result<()> {
+        fn type_err<T>(
+            statement: &Statement,
+            result: core::result::Result<T, String>,
+            ctx: impl std::fmt::Display,
+        ) -> Result<T> {
+            let statement = statement.clone();
+            result.map_err(move |msg| InterpreterError::Statement {
+                statement,
+                msg: format!("{ctx} -> {msg}"),
+            })
+        }
         match statement {
             Statement::Print(print_stmt) => {
                 let value = self.evaluate_expression(&print_stmt.expression)?;
                 writeln!(output, "{}", value)?;
+                Ok(())
+            },
+            Statement::If(if_stmt) => {
+                let condition = self.evaluate_expression(&if_stmt.condition)?;
+                let condition = type_err(
+                    &statement,
+                    condition.boolean_value(),
+                    "if statement requires boolean condition",
+                )?;
+                if condition {
+                    self.execute_statement(&if_stmt.then_branch, output)?;
+                } else if let Some(else_branch) = &if_stmt.else_branch {
+                    self.execute_statement(else_branch, output)?;
+                }
                 Ok(())
             },
             Statement::Expression(expr_stmt) => {
