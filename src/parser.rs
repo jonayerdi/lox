@@ -139,13 +139,14 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    // statement → exprStmt | ifStmt | printStmt | whileStmt | block ;
+    // statement → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
     pub fn statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
             Some(token) => Ok(match token.value {
                 TokenValue::Print => self.print_statement()?,
                 TokenValue::If => self.if_statement()?,
                 TokenValue::While => self.while_statement()?,
+                TokenValue::For => self.for_statement()?,
                 TokenValue::LeftBrace => self.block_statement()?,
                 _ => {
                     self.rewind_token(token);
@@ -231,7 +232,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    // ifStmt → "if" "(" expression ")" statement ( "else" statement )? ;
+    // whileStmt → "while" "(" expression ")" statement ;
     pub fn while_statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
             Some(token) => match token.value {
@@ -267,6 +268,128 @@ impl<S: Iterator<Item = Token>> Parser<S> {
             },
             None => Err(self.error(
                 format!("Expected '(' after while, found EOF"),
+                None,
+            )),
+        }
+    }
+
+    // forStmt → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+    pub fn for_statement(&mut self) -> Result<Statement, LoxError> {
+        match self.next_token() {
+            Some(token) => match token.value {
+                TokenValue::LeftParen => {
+                    if let Some(token) = self.next_token() {
+                        let initializer  = match token.value {
+                            TokenValue::Semicolon => None,
+                            TokenValue::Var => Some(self.variable_declaration()?),
+                            _ => {
+                                self.rewind_token(token);
+                                let decl = self.expression_statement()?;
+                                if let Some(token) = self.next_token() {
+                                    if token.value == TokenValue::Semicolon {
+                                        Ok(Some(decl))
+                                    } else {
+                                        Err(self.error(
+                                            format!("Expected ';' after for initializer, found \"{}\"", token.value),
+                                            None,
+                                        ))
+                                    }
+                                } else {
+                                    Err(self.error(
+                                        format!("Expected ';' after for initializer, found EOF"),
+                                        None,
+                                    ))
+                                }
+                            }?,
+                        };
+                        if let Some(token) = self.next_token() {
+                            let condition  = match token.value {
+                                TokenValue::Semicolon => None,
+                                _ => {
+                                    self.rewind_token(token);
+                                    let expr = self.expression()?;
+                                    if let Some(token) = self.next_token() {
+                                        if token.value == TokenValue::Semicolon {
+                                            Ok(Some(expr))
+                                        } else {
+                                            Err(self.error(
+                                                format!("Expected ';' after for condition, found \"{}\"", token.value),
+                                                None,
+                                            ))
+                                        }
+                                    } else {
+                                        Err(self.error(
+                                            format!("Expected ';' after for condition, found EOF"),
+                                            None,
+                                        ))
+                                    }
+                                }?,
+                            };
+                            if let Some(token) = self.next_token() {
+                                let increment   = match token.value {
+                                    TokenValue::Semicolon => None,
+                                    _ => {
+                                        self.rewind_token(token);
+                                        let expr = self.expression()?;
+                                        if let Some(token) = self.next_token() {
+                                            if token.value == TokenValue::RightParen {
+                                                Ok(Some(expr))
+                                            } else {
+                                                Err(self.error(
+                                                    format!("Expected ')' after for increment, found \"{}\"", token.value),
+                                                    None,
+                                                ))
+                                            }
+                                        } else {
+                                            Err(self.error(
+                                                format!("Expected ')' after for increment, found EOF"),
+                                                None,
+                                            ))
+                                        }
+                                    }?,
+                                };
+                                let mut body = self.statement()?;
+                                if let Some(increment) = increment {
+                                    body = Statement::block(vec![body, Statement::expression(increment)]);
+                                }
+                                let condition = match condition {
+                                    Some(condition) => condition,
+                                    None => Expression::literal(LiteralValue::Boolean(true)),
+                                };
+                                body = Statement::while_stmt(condition, body);
+                                if let Some(initializer) = initializer {
+                                    body = Statement::block(vec![initializer, body]);
+                                }
+                                Ok(body)
+                            } else {
+                                Err(self.error(
+                                    format!("Expected condition or ';' after for condition, found EOF"),
+                                    None,
+                                ))
+                            }
+                        } else {
+                            Err(self.error(
+                                format!("Expected condition or ';' after for initializer, found EOF"),
+                                None,
+                            ))
+                        }
+                    } else {
+                        Err(self.error(
+                            format!("Expected initializer or ';' in for, found EOF"),
+                            None,
+                        ))
+                    }
+                },
+                _ => Err(self.error(
+                    format!(
+                        "Expected '(' after for, found \"{}\"",
+                        token.value
+                    ),
+                    None,
+                )),
+            },
+            None => Err(self.error(
+                format!("Expected '(' after for, found EOF"),
                 None,
             )),
         }
