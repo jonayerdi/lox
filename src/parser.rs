@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     expression::{
-        BinaryOperator, Expr, Expression, ExpressionContext, LiteralValue, UnaryOperator,
+        BinaryOperator, Expr, Expression, ExpressionContext, LiteralValue, UnaryOperator, LogicalOperator,
     },
     result::LoxError,
     rewind::Rewind,
@@ -282,9 +282,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         self.assignment()
     }
 
-    // assignment     → IDENTIFIER "=" assignment | equality ;
+    // assignment     → IDENTIFIER "=" assignment | logic_or ;
     pub fn assignment(&mut self) -> Result<Expr, LoxError> {
-        let expr = self.equality()?;
+        let expr = self.logic_or()?;
         match self.next_token() {
             Some(token) => match token.value {
                 TokenValue::Equal => {
@@ -305,6 +305,46 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 }
             },
             _ => Ok(expr),
+        }
+    }
+
+    // logic_or       → logic_and ( "or" logic_and )* ;
+    pub fn logic_or(&mut self) -> Result<Expr, LoxError> {
+        let mut expr = self.logic_and()?;
+        loop {
+            if let Some(token) = self.next_token() {
+                match token.value {
+                    TokenValue::Or => {
+                        let right: Box<Expression> = self.logic_and()?;
+                        expr = Expression::logical(expr, LogicalOperator::Or, right);
+                        continue;
+                    }
+                    _ => {
+                        self.rewind_token(token);
+                    }
+                }
+            }
+            return Ok(expr);
+        }
+    }
+
+    // logic_and      → equality ( "and" equality )* ;
+    pub fn logic_and(&mut self) -> Result<Expr, LoxError> {
+        let mut expr = self.equality()?;
+        loop {
+            if let Some(token) = self.next_token() {
+                match token.value {
+                    TokenValue::And => {
+                        let right: Box<Expression> = self.equality()?;
+                        expr = Expression::logical(expr, LogicalOperator::And, right);
+                        continue;
+                    }
+                    _ => {
+                        self.rewind_token(token);
+                    }
+                }
+            }
+            return Ok(expr);
         }
     }
 

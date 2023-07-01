@@ -31,6 +31,7 @@ pub enum Expression {
     Literal(LiteralExpression),
     Variable(VariableExpression),
     Assignment(AssignmentExpression),
+    Logical(LogicalExpression),
     Grouping(GroupingExpression),
     Unary(UnaryExpression),
     Binary(BinaryExpression),
@@ -47,6 +48,9 @@ impl Expression {
     }
     pub fn assignment(identifier: String, value: Expr) -> Box<Self> {
         Box::new(Self::Assignment(AssignmentExpression { identifier, value }))
+    }
+    pub fn logical(left: Expr, operator: LogicalOperator, right: Expr) -> Box<Self> {
+        Box::new(Self::Logical(LogicalExpression { left, operator, right }))
     }
     pub fn grouping(expression: Expr) -> Box<Self> {
         Box::new(Self::Grouping(GroupingExpression { expression }))
@@ -69,6 +73,7 @@ impl Display for Expression {
             Expression::Literal(expr) => write!(f, "{}", expr),
             Expression::Variable(expr) => write!(f, "{}", expr),
             Expression::Assignment(expr) => write!(f, "{}", expr),
+            Expression::Logical(expr) => write!(f, "{}", expr),
             Expression::Grouping(expr) => write!(f, "{}", expr),
             Expression::Unary(expr) => write!(f, "{}", expr),
             Expression::Binary(expr) => write!(f, "{}", expr),
@@ -91,6 +96,12 @@ impl From<VariableExpression> for Expression {
 impl From<AssignmentExpression> for Expression {
     fn from(expr: AssignmentExpression) -> Self {
         Expression::Assignment(expr)
+    }
+}
+
+impl From<LogicalExpression> for Expression {
+    fn from(expr: LogicalExpression) -> Self {
+        Expression::Logical(expr)
     }
 }
 
@@ -143,6 +154,19 @@ pub struct AssignmentExpression {
 impl Display for AssignmentExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} = {}", self.identifier, self.value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LogicalExpression {
+    pub left: Expr,
+    pub operator: LogicalOperator,
+    pub right: Expr,
+}
+
+impl Display for LogicalExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} {}", self.left, self.operator, self.right)
     }
 }
 
@@ -226,6 +250,21 @@ impl Display for BinaryOperator {
             BinaryOperator::Sub => write!(f, "{}", "-"),
             BinaryOperator::Mul => write!(f, "{}", "*"),
             BinaryOperator::Div => write!(f, "{}", "/"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogicalOperator {
+    And,
+    Or,
+}
+
+impl Display for LogicalOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogicalOperator::And => write!(f, "{}", "and"),
+            LogicalOperator::Or => write!(f, "{}", "or"),
         }
     }
 }

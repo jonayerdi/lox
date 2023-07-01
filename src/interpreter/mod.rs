@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use thiserror::Error;
 
 use crate::{
-    expression::{BinaryOperator, Expression, UnaryOperator},
+    expression::{BinaryOperator, Expression, UnaryOperator, LogicalOperator},
     result::LoxError,
     statement::Statement,
 };
@@ -142,7 +142,7 @@ impl Interpreter {
                         ),
                     }),
                 }
-            }
+            },
             Expression::Assignment(assignment_expression) => {
                 let value = self.evaluate_expression(&assignment_expression.value)?;
                 let expression = expression.clone();
@@ -156,10 +156,36 @@ impl Interpreter {
                             &assignment_expression.identifier
                         ),
                     })
-            }
+            },
+            Expression::Logical(logical_expression) => {
+                let left = self.evaluate_expression(&logical_expression.left)?;
+                match logical_expression.operator {
+                    LogicalOperator::And => {
+                        let condition = type_err(
+                            &expression,
+                            left.boolean_value(),
+                            "Operator and requires boolean condition",
+                        )?;
+                        if !condition {
+                            return Ok(left);
+                        }
+                    },
+                    LogicalOperator::Or => {
+                        let condition = type_err(
+                            &expression,
+                            left.boolean_value(),
+                            "Operator or requires boolean condition",
+                        )?;
+                        if condition {
+                            return Ok(left);
+                        }
+                    },
+                }
+                self.evaluate_expression(&logical_expression.right)
+            },
             Expression::Grouping(grouping_expression) => {
                 self.evaluate_expression(&grouping_expression.expression)
-            }
+            },
             Expression::Unary(unary_expression) => {
                 //let make_err = |msg| InterpreterError::Expression { expression, msg };
                 let right_value = self.evaluate_expression(&unary_expression.right)?;
@@ -175,7 +201,7 @@ impl Interpreter {
                         "Operator - requires numeric operand",
                     )?)),
                 }
-            }
+            },
             Expression::Binary(binary_expression) => {
                 let left_value = self.evaluate_expression(&binary_expression.left)?;
                 let right_value = self.evaluate_expression(&binary_expression.right)?;
@@ -276,7 +302,7 @@ impl Interpreter {
                         )?,
                     )),
                 }
-            }
+            },
         }
     }
 }
