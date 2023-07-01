@@ -139,12 +139,13 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    // statement → exprStmt | ifStmt | printStmt | block ;
+    // statement → exprStmt | ifStmt | printStmt | whileStmt | block ;
     pub fn statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
             Some(token) => Ok(match token.value {
                 TokenValue::Print => self.print_statement()?,
                 TokenValue::If => self.if_statement()?,
+                TokenValue::While => self.while_statement()?,
                 TokenValue::LeftBrace => self.block_statement()?,
                 _ => {
                     self.rewind_token(token);
@@ -199,7 +200,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                     }
                                     _ => None,
                                 };
-                                Ok(Statement::ifelse(condition, then_branch, else_branch))
+                                Ok(Statement::if_stmt(condition, then_branch, else_branch))
                             },
                             _ => Err(self.error(
                                 format!(
@@ -225,6 +226,47 @@ impl<S: Iterator<Item = Token>> Parser<S> {
             },
             None => Err(self.error(
                 format!("Expected '(' after if, found EOF"),
+                None,
+            )),
+        }
+    }
+
+    // ifStmt → "if" "(" expression ")" statement ( "else" statement )? ;
+    pub fn while_statement(&mut self) -> Result<Statement, LoxError> {
+        match self.next_token() {
+            Some(token) => match token.value {
+                TokenValue::LeftParen => {
+                    let condition  = self.expression()?;
+                    match self.next_token() {
+                        Some(token) => match token.value {
+                            TokenValue::RightParen => {
+                                let body = self.statement()?;
+                                Ok(Statement::while_stmt(condition, body))
+                            },
+                            _ => Err(self.error(
+                                format!(
+                                    "Expected ')' after while condition, found \"{}\"",
+                                    token.value
+                                ),
+                                None,
+                            )),
+                        },
+                        None => Err(self.error(
+                            format!("Expected ')' after while condition, found EOF"),
+                            None,
+                        )),
+                    }
+                },
+                _ => Err(self.error(
+                    format!(
+                        "Expected '(' after while, found \"{}\"",
+                        token.value
+                    ),
+                    None,
+                )),
+            },
+            None => Err(self.error(
+                format!("Expected '(' after while, found EOF"),
                 None,
             )),
         }

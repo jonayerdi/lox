@@ -91,6 +91,21 @@ impl Interpreter {
                 }
                 Ok(())
             },
+            Statement::While(while_stmt) => {
+                loop {
+                    let condition = self.evaluate_expression(&while_stmt.condition)?;
+                    let condition = type_err(
+                        &statement,
+                        condition.boolean_value(),
+                        "while statement requires boolean condition",
+                    )?;
+                    if condition {
+                        self.execute_statement(&while_stmt.body, output)?;
+                    } else {
+                        return Ok(());
+                    }
+                }
+            },
             Statement::Expression(expr_stmt) => {
                 let _value = self.evaluate_expression(&expr_stmt.expression)?;
                 //writeln!(output, "{}", value)?;

@@ -6,6 +6,7 @@ use crate::expression::Expr;
 pub enum Statement {
     Print(PrintStatement),
     If(IfStatement),
+    While(WhileStatement),
     Expression(ExpressionStatement),
     Block(BlockStatement),
     Var(VarStatement),
@@ -17,11 +18,17 @@ impl Statement {
     pub fn print(expression: Expr) -> Self {
         Self::Print(PrintStatement { expression })
     }
-    pub fn ifelse(condition: Expr, then_branch: Statement, else_branch: Option<Statement>) -> Self {
+    pub fn if_stmt(condition: Expr, then_branch: Statement, else_branch: Option<Statement>) -> Self {
         Self::If(IfStatement { 
             condition,
             then_branch: Box::new(then_branch),
             else_branch: else_branch.and_then(|e| Some(Box::new(e))),
+        })
+    }
+    pub fn while_stmt(condition: Expr, body: Statement) -> Self {
+        Self::While(WhileStatement { 
+            condition,
+            body: Box::new(body),
         })
     }
     pub fn expression(expression: Expr) -> Self {
@@ -43,6 +50,7 @@ impl Display for Statement {
         match self {
             Statement::Print(stmt) => write!(f, "{}", stmt),
             Statement::If(stmt) => write!(f, "{}", stmt),
+            Statement::While(stmt) => write!(f, "{}", stmt),
             Statement::Expression(stmt) => write!(f, "{}", stmt),
             Statement::Block(stmt) => write!(f, "{}", stmt),
             Statement::Var(stmt) => write!(f, "{}", stmt),
@@ -75,6 +83,18 @@ impl Display for IfStatement {
             write!(f, " else {}", else_branch)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WhileStatement {
+    pub condition: Expr,
+    pub body: Stmt,
+}
+
+impl Display for WhileStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "while ({}) {}", self.condition, self.body)
     }
 }
 
