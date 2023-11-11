@@ -35,6 +35,7 @@ pub enum Expression {
     Grouping(GroupingExpression),
     Unary(UnaryExpression),
     Binary(BinaryExpression),
+    Call(CallExpression),
 }
 
 pub type Expr = Box<Expression>;
@@ -50,7 +51,11 @@ impl Expression {
         Box::new(Self::Assignment(AssignmentExpression { identifier, value }))
     }
     pub fn logical(left: Expr, operator: LogicalOperator, right: Expr) -> Box<Self> {
-        Box::new(Self::Logical(LogicalExpression { left, operator, right }))
+        Box::new(Self::Logical(LogicalExpression {
+            left,
+            operator,
+            right,
+        }))
     }
     pub fn grouping(expression: Expr) -> Box<Self> {
         Box::new(Self::Grouping(GroupingExpression { expression }))
@@ -65,6 +70,9 @@ impl Expression {
             right,
         }))
     }
+    pub fn call(callee: Expr, arguments: Vec<Expr>) -> Box<Self> {
+        Box::new(Self::Call(CallExpression { callee, arguments }))
+    }
 }
 
 impl Display for Expression {
@@ -77,6 +85,7 @@ impl Display for Expression {
             Expression::Grouping(expr) => write!(f, "{}", expr),
             Expression::Unary(expr) => write!(f, "{}", expr),
             Expression::Binary(expr) => write!(f, "{}", expr),
+            Expression::Call(expr) => write!(f, "{}", expr),
         }
     }
 }
@@ -120,6 +129,12 @@ impl From<UnaryExpression> for Expression {
 impl From<BinaryExpression> for Expression {
     fn from(expr: BinaryExpression) -> Self {
         Expression::Binary(expr)
+    }
+}
+
+impl From<CallExpression> for Expression {
+    fn from(expr: CallExpression) -> Self {
+        Expression::Call(expr)
     }
 }
 
@@ -285,5 +300,24 @@ impl Display for LiteralValue {
             LiteralValue::String(v) => write!(f, "\"{}\"", v),
             LiteralValue::Number(v) => write!(f, "{}", v),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CallExpression {
+    pub callee: Expr,
+    pub arguments: Vec<Expr>,
+}
+
+impl Display for CallExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.callee)?;
+        for argument in self.arguments.iter().take(self.arguments.len() - 1) {
+            write!(f, "{argument},")?;
+        }
+        if let Some(argument) = self.arguments.last() {
+            write!(f, "{argument}")?;
+        }
+        write!(f, ")")
     }
 }

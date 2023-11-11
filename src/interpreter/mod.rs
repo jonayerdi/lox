@@ -7,12 +7,15 @@ use std::io::{self, Write};
 use thiserror::Error;
 
 use crate::{
-    expression::{BinaryOperator, Expression, UnaryOperator, LogicalOperator},
+    expression::{BinaryOperator, Expression, LogicalOperator, UnaryOperator},
     result::LoxError,
     statement::Statement,
 };
 
-use self::{environment::Env, types::LoxValue};
+use self::{
+    environment::{Env, Environment},
+    types::LoxValue,
+};
 
 #[derive(Error, Debug)]
 pub enum InterpreterError {
@@ -22,6 +25,8 @@ pub enum InterpreterError {
     Statement { statement: Statement, msg: String },
     #[error("Error evaluating expression \"{expression}\": {msg}")]
     Expression { expression: Expression, msg: String },
+    #[error("Error executing native function \"{function}\": {msg}")]
+    NativeFunction { function: String, msg: String },
 }
 
 impl From<io::Error> for InterpreterError {
@@ -38,9 +43,17 @@ impl From<InterpreterError> for LoxError {
 
 pub type Result<T> = core::result::Result<T, InterpreterError>;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Interpreter {
     pub env: Env,
+}
+
+impl Default for Interpreter {
+    fn default() -> Self {
+        Self {
+            env: Environment::new_global(),
+        }
+    }
 }
 
 impl Interpreter {
@@ -76,7 +89,7 @@ impl Interpreter {
                 let value = self.evaluate_expression(&print_stmt.expression)?;
                 writeln!(output, "{}", value)?;
                 Ok(())
-            },
+            }
             Statement::If(if_stmt) => {
                 let condition = self.evaluate_expression(&if_stmt.condition)?;
                 let condition = type_err(
@@ -90,27 +103,25 @@ impl Interpreter {
                     self.execute_statement(else_branch, output)?;
                 }
                 Ok(())
-            },
-            Statement::While(while_stmt) => {
-                loop {
-                    let condition = self.evaluate_expression(&while_stmt.condition)?;
-                    let condition = type_err(
-                        &statement,
-                        condition.boolean_value(),
-                        "while statement requires boolean condition",
-                    )?;
-                    if condition {
-                        self.execute_statement(&while_stmt.body, output)?;
-                    } else {
-                        return Ok(());
-                    }
+            }
+            Statement::While(while_stmt) => loop {
+                let condition = self.evaluate_expression(&while_stmt.condition)?;
+                let condition = type_err(
+                    &statement,
+                    condition.boolean_value(),
+                    "while statement requires boolean condition",
+                )?;
+                if condition {
+                    self.execute_statement(&while_stmt.body, output)?;
+                } else {
+                    return Ok(());
                 }
             },
             Statement::Expression(expr_stmt) => {
                 let _value = self.evaluate_expression(&expr_stmt.expression)?;
                 //writeln!(output, "{}", value)?;
                 Ok(())
-            },
+            }
             Statement::Block(block_stmt) => {
                 self.env.enter();
                 for statement in &block_stmt.statements {
@@ -118,7 +129,7 @@ impl Interpreter {
                 }
                 self.env.exit();
                 Ok(())
-            },
+            }
             Statement::Var(var_stmt) => {
                 let value = match &var_stmt.initializer {
                     Some(initializer) => self.evaluate_expression(initializer)?,
@@ -126,7 +137,7 @@ impl Interpreter {
                 };
                 self.env.set(&var_stmt.identifier, value);
                 Ok(())
-            },
+            }
         }
     }
 
@@ -151,13 +162,10 @@ impl Interpreter {
                     Some(value) => Ok(value.clone()),
                     None => Err(InterpreterError::Expression {
                         expression,
-                        msg: format!(
-                            "Undefined variable \"{}\"",
-                            &variable_expression.identifier
-                        ),
+                        msg: format!("Undefined variable \"{}\"", &variable_expression.identifier),
                     }),
                 }
-            },
+            }
             Expression::Assignment(assignment_expression) => {
                 let value = self.evaluate_expression(&assignment_expression.value)?;
                 let expression = expression.clone();
@@ -171,7 +179,7 @@ impl Interpreter {
                             &assignment_expression.identifier
                         ),
                     })
-            },
+            }
             Expression::Logical(logical_expression) => {
                 let left = self.evaluate_expression(&logical_expression.left)?;
                 match logical_expression.operator {
@@ -184,7 +192,7 @@ impl Interpreter {
                         if !condition {
                             return Ok(left);
                         }
-                    },
+                    }
                     LogicalOperator::Or => {
                         let condition = type_err(
                             &expression,
@@ -194,13 +202,13 @@ impl Interpreter {
                         if condition {
                             return Ok(left);
                         }
-                    },
+                    }
                 }
                 self.evaluate_expression(&logical_expression.right)
-            },
+            }
             Expression::Grouping(grouping_expression) => {
                 self.evaluate_expression(&grouping_expression.expression)
-            },
+            }
             Expression::Unary(unary_expression) => {
                 //let make_err = |msg| InterpreterError::Expression { expression, msg };
                 let right_value = self.evaluate_expression(&unary_expression.right)?;
@@ -216,7 +224,7 @@ impl Interpreter {
                         "Operator - requires numeric operand",
                     )?)),
                 }
-            },
+            }
             Expression::Binary(binary_expression) => {
                 let left_value = self.evaluate_expression(&binary_expression.left)?;
                 let right_value = self.evaluate_expression(&binary_expression.right)?;
@@ -317,7 +325,31 @@ impl Interpreter {
                         )?,
                     )),
                 }
-            },
+            }
+            Expression::Call(call_expression) => {
+                let callee = self.evaluate_expression(&call_expression.callee)?;
+                let arguments_iter = call_expression
+                    .arguments
+                    .iter()
+                    .map(|argument| self.evaluate_expression(argument));
+                let mut arguments = Vec::with_capacity(16);
+                for argument in arguments_iter {
+                    arguments.push(argument?);
+                }
+                let function = type_err(
+                    &expression,
+                    callee.function_value(),
+                    "Call expression requires callee to be a function",
+                )?;
+                if arguments.len() == function.arity() {
+                    function.call(self, &arguments)
+                } else {
+                    Err(InterpreterError::Expression {
+                        expression: expression.clone(),
+                        msg: format!("Function \"{function}\" requires {arity} arguments, but {provided} were provided", arity=function.arity(), provided=arguments.len()),
+                    })
+                }
+            }
         }
     }
 }

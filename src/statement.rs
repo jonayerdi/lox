@@ -18,15 +18,19 @@ impl Statement {
     pub fn print(expression: Expr) -> Self {
         Self::Print(PrintStatement { expression })
     }
-    pub fn if_stmt(condition: Expr, then_branch: Statement, else_branch: Option<Statement>) -> Self {
-        Self::If(IfStatement { 
+    pub fn if_stmt(
+        condition: Expr,
+        then_branch: Statement,
+        else_branch: Option<Statement>,
+    ) -> Self {
+        Self::If(IfStatement {
             condition,
             then_branch: Box::new(then_branch),
             else_branch: else_branch.and_then(|e| Some(Box::new(e))),
         })
     }
     pub fn while_stmt(condition: Expr, body: Statement) -> Self {
-        Self::While(WhileStatement { 
+        Self::While(WhileStatement {
             condition,
             body: Box::new(body),
         })
