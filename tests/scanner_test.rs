@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::LazyLock};
 
 use lox::{
     context::Position,
@@ -6,8 +6,6 @@ use lox::{
     scanner::{Scanner, ScannerItem},
     token::{Token, TokenContext, TokenValue},
 };
-
-use lazy_static::lazy_static;
 
 fn ok(value: TokenValue, begin: (usize, usize)) -> ScannerItem {
     ScannerItem::Ok(Token {
@@ -23,13 +21,10 @@ fn err<D: Display>(msg: D, begin: (usize, usize)) -> ScannerItem {
     ))
 }
 
-lazy_static! {
-    pub static ref TEST_DATA: Vec<(String, Vec<ScannerItem>)> = vec![
+static TEST_DATA: LazyLock<Vec<(String, Vec<ScannerItem>)>> = LazyLock::new(|| {
+    vec![
         (format!(""), vec![]),
-        (
-            format!(";"),
-            vec![ok(TokenValue::Semicolon, (1, 1)),]
-        ),
+        (format!(";"), vec![ok(TokenValue::Semicolon, (1, 1))]),
         (
             format!("1 +1== 2;"),
             vec![
@@ -39,7 +34,7 @@ lazy_static! {
                 ok(TokenValue::EqualEqual, (1, 5)),
                 ok(TokenValue::Number(format!("2")), (1, 8)),
                 ok(TokenValue::Semicolon, (1, 9)),
-            ]
+            ],
         ),
         (
             format!("1 * 12.5 / 2 > 2;"),
@@ -52,7 +47,7 @@ lazy_static! {
                 ok(TokenValue::Greater, (1, 14)),
                 ok(TokenValue::Number(format!("2")), (1, 16)),
                 ok(TokenValue::Semicolon, (1, 17)),
-            ]
+            ],
         ),
         (
             format!("var language = \"lox\";"),
@@ -62,7 +57,7 @@ lazy_static! {
                 ok(TokenValue::Equal, (1, 14)),
                 ok(TokenValue::String(format!("lox")), (1, 16)),
                 ok(TokenValue::Semicolon, (1, 21)),
-            ]
+            ],
         ),
         (
             [
@@ -70,7 +65,8 @@ lazy_static! {
                 "print breakfast; // \"bagels\".",
                 "breakfast = \"beignets\";",
                 "print breakfast; // \"beignets\".",
-            ].join("\n"),
+            ]
+            .join("\n"),
             vec![
                 // Line 1
                 ok(TokenValue::Var, (1, 1)),
@@ -91,24 +87,33 @@ lazy_static! {
                 ok(TokenValue::Print, (4, 1)),
                 ok(TokenValue::Identifier(format!("breakfast")), (4, 7)),
                 ok(TokenValue::Semicolon, (4, 16)),
-            ]
+            ],
         ),
-        (format!("var hello = \"hello;"), vec![
-            ok(TokenValue::Var, (1, 1)),
-            ok(TokenValue::Identifier(format!("hello")), (1, 5)),
-            ok(TokenValue::Equal, (1, 11)),
-            err("Reached EOF in match_string before string termination", (1, 13)),
-        ]),
-        (format!("var _pi = 3.1416;"), vec![
-            ok(TokenValue::Var, (1, 1)),
-            err("Unexpected character: '_'", (1, 5)),
-            ok(TokenValue::Identifier(format!("pi")), (1, 6)),
-            ok(TokenValue::Equal, (1, 9)),
-            ok(TokenValue::Number("3.1416".parse().unwrap()), (1, 11)),
-            ok(TokenValue::Semicolon, (1, 17)),
-        ]),
-    ];
-}
+        (
+            format!("var hello = \"hello;"),
+            vec![
+                ok(TokenValue::Var, (1, 1)),
+                ok(TokenValue::Identifier(format!("hello")), (1, 5)),
+                ok(TokenValue::Equal, (1, 11)),
+                err(
+                    "Reached EOF in match_string before string termination",
+                    (1, 13),
+                ),
+            ],
+        ),
+        (
+            format!("var _pi = 3.1416;"),
+            vec![
+                ok(TokenValue::Var, (1, 1)),
+                err("Unexpected character: '_'", (1, 5)),
+                ok(TokenValue::Identifier(format!("pi")), (1, 6)),
+                ok(TokenValue::Equal, (1, 9)),
+                ok(TokenValue::Number("3.1416".parse().unwrap()), (1, 11)),
+                ok(TokenValue::Semicolon, (1, 17)),
+            ],
+        ),
+    ]
+});
 
 #[test]
 fn test() {

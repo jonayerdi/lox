@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, ops::ControlFlow};
+use std::{collections::HashMap, fmt::Display, ops::ControlFlow, sync::LazyLock};
 
 use crate::{
     context::{Position, PositionTracker},
@@ -6,30 +6,26 @@ use crate::{
     token::{Token, TokenContext, TokenValue},
 };
 
-use lazy_static::lazy_static;
-
-lazy_static! {
-    pub static ref KEYWORDS: HashMap<&'static str, TokenValue> = {
-        let mut m = HashMap::new();
-        m.insert("and", TokenValue::And);
-        m.insert("class", TokenValue::Class);
-        m.insert("else", TokenValue::Else);
-        m.insert("false", TokenValue::False);
-        m.insert("for", TokenValue::For);
-        m.insert("fun", TokenValue::Fun);
-        m.insert("if", TokenValue::If);
-        m.insert("nil", TokenValue::Nil);
-        m.insert("or", TokenValue::Or);
-        m.insert("print", TokenValue::Print);
-        m.insert("return", TokenValue::Return);
-        m.insert("super", TokenValue::Super);
-        m.insert("this", TokenValue::This);
-        m.insert("true", TokenValue::True);
-        m.insert("var", TokenValue::Var);
-        m.insert("while", TokenValue::While);
-        m
-    };
-}
+static KEYWORDS: LazyLock<HashMap<&'static str, TokenValue>> = LazyLock::new(|| {
+    let mut m = HashMap::new();
+    m.insert("and", TokenValue::And);
+    m.insert("class", TokenValue::Class);
+    m.insert("else", TokenValue::Else);
+    m.insert("false", TokenValue::False);
+    m.insert("for", TokenValue::For);
+    m.insert("fun", TokenValue::Fun);
+    m.insert("if", TokenValue::If);
+    m.insert("nil", TokenValue::Nil);
+    m.insert("or", TokenValue::Or);
+    m.insert("print", TokenValue::Print);
+    m.insert("return", TokenValue::Return);
+    m.insert("super", TokenValue::Super);
+    m.insert("this", TokenValue::This);
+    m.insert("true", TokenValue::True);
+    m.insert("var", TokenValue::Var);
+    m.insert("while", TokenValue::While);
+    m
+});
 
 pub type ScannerItem = Result<Token>;
 

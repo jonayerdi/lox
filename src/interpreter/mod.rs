@@ -2,9 +2,11 @@ pub mod environment;
 pub mod run;
 pub mod types;
 
-use std::io::{self, Write};
-
-use thiserror::Error;
+use std::{
+    error::Error,
+    fmt::Display,
+    io::{self, Write},
+};
 
 use crate::{
     expression::{BinaryOperator, Expression, LogicalOperator, UnaryOperator},
@@ -17,17 +19,32 @@ use self::{
     types::LoxValue,
 };
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum InterpreterError {
-    #[error("Error during IO operation: {error}")]
     IO { error: std::io::Error },
-    #[error("Error evaluating statement \"{statement}\": {msg}")]
     Statement { statement: Statement, msg: String },
-    #[error("Error evaluating expression \"{expression}\": {msg}")]
     Expression { expression: Expression, msg: String },
-    #[error("Error executing native function \"{function}\": {msg}")]
     NativeFunction { function: String, msg: String },
 }
+
+impl Display for InterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InterpreterError::IO { error } => write!(f, "Error during IO operation: {error}"),
+            InterpreterError::Statement { statement, msg } => {
+                write!(f, "Error evaluating statement \"{statement}\": {msg}")
+            }
+            InterpreterError::Expression { expression, msg } => {
+                write!(f, "Error evaluating expression \"{expression}\": {msg}")
+            }
+            InterpreterError::NativeFunction { function, msg } => {
+                write!(f, "Error executing native function \"{function}\": {msg}")
+            }
+        }
+    }
+}
+
+impl Error for InterpreterError {}
 
 impl From<io::Error> for InterpreterError {
     fn from(error: io::Error) -> Self {

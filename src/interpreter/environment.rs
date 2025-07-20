@@ -1,7 +1,4 @@
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    time::SystemTime,
-};
+use std::collections::{hash_map::Entry, HashMap};
 
 use crate::interpreter::types::{LoxFunction, LoxValue};
 use crate::interpreter::InterpreterError;
@@ -75,7 +72,7 @@ impl Environment {
             "clock",
             0,
             |_interpreter, _args| match std::time::SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
+                .duration_since(std::time::SystemTime::UNIX_EPOCH)
             {
                 Ok(time) => Ok(LoxValue::Number(time.as_secs_f64())),
                 Err(error) => Err(InterpreterError::NativeFunction {

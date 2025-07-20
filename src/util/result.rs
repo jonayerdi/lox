@@ -1,26 +1,28 @@
-use std::fmt::Display;
-
-use thiserror::Error;
+use std::{error::Error, fmt::Display};
 
 use crate::{expression::ExpressionContext, token::TokenContext};
 
 pub type Result<T> = core::result::Result<T, LoxError>;
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum LoxError {
-    #[error("[ERROR(IO)] {error}")]
-    IO { error: std::io::Error },
-    #[error("[ERROR(SCAN)] {msg} (at {context})")]
-    Scan { msg: String, context: TokenContext },
-    #[error("[ERROR(PARSE)] {msg} (at {context})")]
+    IO {
+        error: std::io::Error,
+    },
+    Scan {
+        msg: String,
+        context: TokenContext,
+    },
     Parse {
         msg: String,
         context: ExpressionContext,
     },
-    #[error("[ERROR(INTERPRET)] {msg}")]
-    Interpret { msg: String },
-    #[error("[ERROR(CLI)] {msg}")]
-    CLI { msg: String },
+    Interpret {
+        msg: String,
+    },
+    CLI {
+        msg: String,
+    },
 }
 
 impl LoxError {
@@ -50,6 +52,20 @@ impl LoxError {
         }
     }
 }
+
+impl Display for LoxError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LoxError::IO { error } => write!(f, "[ERROR(IO)] {error}"),
+            LoxError::Scan { msg, context } => write!(f, "[ERROR(SCAN)] {msg} (at {context})"),
+            LoxError::Parse { msg, context } => write!(f, "[ERROR(PARSE)] {msg} (at {context})"),
+            LoxError::Interpret { msg } => write!(f, "[ERROR(INTERPRET)] {msg}"),
+            LoxError::CLI { msg } => write!(f, "[ERROR(CLI)] {msg}"),
+        }
+    }
+}
+
+impl Error for LoxError {}
 
 impl From<std::io::Error> for LoxError {
     fn from(error: std::io::Error) -> Self {
