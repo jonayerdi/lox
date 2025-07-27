@@ -60,7 +60,7 @@ impl<S: Iterator<Item = char>> PositionTracker<S> {
     pub fn rewind(&mut self, c: char) {
         if c == '\n' {
             self.position.0 -= 1;
-            self.position.1 = *self.line_lengths.get(self.position.0).unwrap(); // line_lengths should always have recorded previous lines, so this should never panic
+            self.position.1 = self.line_lengths.pop().unwrap(); // line_lengths should always have recorded previous lines, so this should never panic
         } else {
             self.position.1 -= 1;
         }
@@ -74,10 +74,7 @@ impl<S: Iterator<Item = char>> Iterator for PositionTracker<S> {
         let next = self.source.next();
         if let Some(c) = next {
             if c == '\n' {
-                if self.line_lengths.len() < self.position.0 {
-                    assert_eq!(self.line_lengths.len() + 1, self.position.0); // line_lengths should always have recorded previous lines, so this should never panic
-                    self.line_lengths.push(self.position.1)
-                }
+                self.line_lengths.push(self.position.1);
                 self.position.0 += 1;
                 self.position.1 = 1;
             } else {
