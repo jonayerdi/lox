@@ -91,48 +91,6 @@ impl TokenValue {
             TokenValue::While => "keyword",
         }
     }
-    pub fn len(&self) -> usize {
-        match self {
-            TokenValue::LeftParen => 1,
-            TokenValue::RightParen => 1,
-            TokenValue::LeftBrace => 1,
-            TokenValue::RightBrace => 1,
-            TokenValue::Comma => 1,
-            TokenValue::Dot => 1,
-            TokenValue::Minus => 1,
-            TokenValue::Plus => 1,
-            TokenValue::Semicolon => 1,
-            TokenValue::Slash => 1,
-            TokenValue::Star => 1,
-            TokenValue::Bang => 1,
-            TokenValue::BangEqual => 2,
-            TokenValue::Equal => 1,
-            TokenValue::EqualEqual => 2,
-            TokenValue::Greater => 1,
-            TokenValue::GreaterEqual => 2,
-            TokenValue::Less => 1,
-            TokenValue::LessEqual => 2,
-            TokenValue::Identifier(s) => s.len(),
-            TokenValue::String(s) => s.len(),
-            TokenValue::Number(s) => s.len(),
-            TokenValue::And => 3,
-            TokenValue::Class => 5,
-            TokenValue::Else => 4,
-            TokenValue::False => 5,
-            TokenValue::Fun => 3,
-            TokenValue::For => 3,
-            TokenValue::If => 2,
-            TokenValue::Nil => 3,
-            TokenValue::Or => 2,
-            TokenValue::Print => 5,
-            TokenValue::Return => 6,
-            TokenValue::Super => 5,
-            TokenValue::This => 4,
-            TokenValue::True => 4,
-            TokenValue::Var => 3,
-            TokenValue::While => 5,
-        }
-    }
 }
 
 impl Display for TokenValue {

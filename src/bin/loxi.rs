@@ -1,8 +1,4 @@
-use std::{
-    env,
-    fs::File,
-    io::{self, Read},
-};
+use std::{env, fs::File, io::Read};
 
 use lox::{
     interpreter::Interpreter,
@@ -12,16 +8,12 @@ use lox::{
 fn run() -> Result<()> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match args.len() {
-        0 => lox::run_interactive(
-            &mut Interpreter::new(),
-            io::stdin().lock(),
-            io::stdout().lock(),
-        ),
+        0 => lox::run_interactive(&mut Interpreter::new()),
         1 => {
             let filename = &args[0];
             let mut source = String::new();
             File::open(filename)?.read_to_string(&mut source)?;
-            lox::run(&mut Interpreter::new(), &source, io::stdout().lock())
+            lox::run(&mut Interpreter::new(), &source)
         }
         _ => Err(LoxError::cli("Usage: loxi [script]")),
     }

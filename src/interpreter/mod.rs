@@ -5,7 +5,7 @@ pub mod types;
 use std::{
     error::Error,
     fmt::Display,
-    io::{self, Write},
+    io::{self, stderr, stdin, stdout, BufRead, Write},
 };
 
 use crate::{
@@ -60,15 +60,20 @@ impl From<InterpreterError> for LoxError {
 
 pub type Result<T> = core::result::Result<T, InterpreterError>;
 
-#[derive(Debug, Clone)]
 pub struct Interpreter {
     pub env: Env,
+    pub stdin: Box<dyn BufRead>,
+    pub stdout: Box<dyn Write>,
+    pub stderr: Box<dyn Write>,
 }
 
 impl Default for Interpreter {
     fn default() -> Self {
         Self {
             env: Environment::new_global(),
+            stdin: Box::new(stdin().lock()),
+            stdout: Box::new(stdout().lock()),
+            stderr: Box::new(stderr().lock()),
         }
     }
 }
@@ -78,18 +83,29 @@ impl Interpreter {
         Self::default()
     }
 
-    pub fn interpret<W: Write>(&mut self, statements: &[Statement], output: &mut W) -> Result<()> {
+    pub fn with_stdin(mut self, stdin: impl BufRead + 'static) -> Self {
+        self.stdin = Box::new(stdin);
+        self
+    }
+
+    pub fn with_stdout(mut self, stdout: impl Write + 'static) -> Self {
+        self.stdout = Box::new(stdout);
+        self
+    }
+
+    pub fn with_stderr(mut self, stderr: impl Write + 'static) -> Self {
+        self.stderr = Box::new(stderr);
+        self
+    }
+
+    pub fn interpret(&mut self, statements: &[Statement]) -> Result<()> {
         for statement in statements {
-            self.execute_statement(statement, output)?;
+            self.execute_statement(statement)?;
         }
         Ok(())
     }
 
-    pub fn execute_statement<W: Write>(
-        &mut self,
-        statement: &Statement,
-        output: &mut W,
-    ) -> Result<()> {
+    pub fn execute_statement(&mut self, statement: &Statement) -> Result<()> {
         fn type_err<T>(
             statement: &Statement,
             result: core::result::Result<T, String>,
@@ -104,32 +120,32 @@ impl Interpreter {
         match statement {
             Statement::Print(print_stmt) => {
                 let value = self.evaluate_expression(&print_stmt.expression)?;
-                writeln!(output, "{}", value)?;
+                writeln!(self.stdout, "{}", value)?;
                 Ok(())
             }
             Statement::If(if_stmt) => {
                 let condition = self.evaluate_expression(&if_stmt.condition)?;
                 let condition = type_err(
-                    &statement,
+                    statement,
                     condition.boolean_value(),
                     "if statement requires boolean condition",
                 )?;
                 if condition {
-                    self.execute_statement(&if_stmt.then_branch, output)?;
+                    self.execute_statement(&if_stmt.then_branch)?;
                 } else if let Some(else_branch) = &if_stmt.else_branch {
-                    self.execute_statement(else_branch, output)?;
+                    self.execute_statement(else_branch)?;
                 }
                 Ok(())
             }
             Statement::While(while_stmt) => loop {
                 let condition = self.evaluate_expression(&while_stmt.condition)?;
                 let condition = type_err(
-                    &statement,
+                    statement,
                     condition.boolean_value(),
                     "while statement requires boolean condition",
                 )?;
                 if condition {
-                    self.execute_statement(&while_stmt.body, output)?;
+                    self.execute_statement(&while_stmt.body)?;
                 } else {
                     return Ok(());
                 }
@@ -142,7 +158,7 @@ impl Interpreter {
             Statement::Block(block_stmt) => {
                 self.env.enter();
                 for statement in &block_stmt.statements {
-                    self.execute_statement(statement, output)?;
+                    self.execute_statement(statement)?;
                 }
                 self.env.exit();
                 Ok(())
@@ -153,6 +169,14 @@ impl Interpreter {
                     None => LoxValue::Nil,
                 };
                 self.env.set(&var_stmt.identifier, value);
+                Ok(())
+            }
+            Statement::Function(function_stmt) => {
+                let identifier = function_stmt.identifier.to_string();
+                let function_stmt = function_stmt.clone();
+                let function = function_stmt.into();
+                let function = LoxValue::Function(function);
+                self.env.set(identifier, function);
                 Ok(())
             }
         }
@@ -202,7 +226,7 @@ impl Interpreter {
                 match logical_expression.operator {
                     LogicalOperator::And => {
                         let condition = type_err(
-                            &expression,
+                            expression,
                             left.boolean_value(),
                             "Operator and requires boolean condition",
                         )?;
@@ -212,7 +236,7 @@ impl Interpreter {
                     }
                     LogicalOperator::Or => {
                         let condition = type_err(
-                            &expression,
+                            expression,
                             left.boolean_value(),
                             "Operator or requires boolean condition",
                         )?;
@@ -231,12 +255,12 @@ impl Interpreter {
                 let right_value = self.evaluate_expression(&unary_expression.right)?;
                 match unary_expression.operator {
                     UnaryOperator::Not => Ok(LoxValue::Boolean(!type_err(
-                        &expression,
+                        expression,
                         right_value.boolean_value(),
                         "Operator ! requires boolean operand",
                     )?)),
                     UnaryOperator::Neg => Ok(LoxValue::Number(-type_err(
-                        &expression,
+                        expression,
                         right_value.numeric_value(),
                         "Operator - requires numeric operand",
                     )?)),
@@ -250,44 +274,44 @@ impl Interpreter {
                     BinaryOperator::Neq => Ok(LoxValue::Boolean(!left_value.eq(&right_value))),
                     BinaryOperator::Lt => Ok(LoxValue::Boolean(
                         type_err(
-                            &expression,
+                            expression,
                             left_value.numeric_value(),
                             "Operator < requires numeric operands",
                         )? < type_err(
-                            &expression,
+                            expression,
                             right_value.numeric_value(),
                             "Operator < requires numeric operands",
                         )?,
                     )),
                     BinaryOperator::Leq => Ok(LoxValue::Boolean(
                         type_err(
-                            &expression,
+                            expression,
                             left_value.numeric_value(),
                             "Operator <= requires numeric operands",
                         )? <= type_err(
-                            &expression,
+                            expression,
                             right_value.numeric_value(),
                             "Operator <= requires numeric operands",
                         )?,
                     )),
                     BinaryOperator::Gt => Ok(LoxValue::Boolean(
                         type_err(
-                            &expression,
+                            expression,
                             left_value.numeric_value(),
                             "Operator > requires numeric operands",
                         )? > type_err(
-                            &expression,
+                            expression,
                             right_value.numeric_value(),
                             "Operator > requires numeric operands",
                         )?,
                     )),
                     BinaryOperator::Geq => Ok(LoxValue::Boolean(
                         type_err(
-                            &expression,
+                            expression,
                             left_value.numeric_value(),
                             "Operator >= requires numeric operands",
                         )? >= type_err(
-                            &expression,
+                            expression,
                             right_value.numeric_value(),
                             "Operator >= requires numeric operands",
                         )?,
@@ -298,11 +322,11 @@ impl Interpreter {
                         }
                         _ => Ok(LoxValue::Number(
                             type_err(
-                                &expression,
+                                expression,
                                 left_value.numeric_value(),
                                 "Operator + requires numeric or string operands",
                             )? + type_err(
-                                &expression,
+                                expression,
                                 right_value.numeric_value(),
                                 "Operator + requires numeric or string operands",
                             )?,
@@ -310,33 +334,33 @@ impl Interpreter {
                     },
                     BinaryOperator::Sub => Ok(LoxValue::Number(
                         type_err(
-                            &expression,
+                            expression,
                             left_value.numeric_value(),
                             "Operator - requires numeric operands",
                         )? - type_err(
-                            &expression,
+                            expression,
                             right_value.numeric_value(),
                             "Operator - requires numeric operands",
                         )?,
                     )),
                     BinaryOperator::Mul => Ok(LoxValue::Number(
                         type_err(
-                            &expression,
+                            expression,
                             left_value.numeric_value(),
                             "Operator * requires numeric operands",
                         )? * type_err(
-                            &expression,
+                            expression,
                             right_value.numeric_value(),
                             "Operator * requires numeric operands",
                         )?,
                     )),
                     BinaryOperator::Div => Ok(LoxValue::Number(
                         type_err(
-                            &expression,
+                            expression,
                             left_value.numeric_value(),
                             "Operator / requires numeric operands",
                         )? / type_err(
-                            &expression,
+                            expression,
                             right_value.numeric_value(),
                             "Operator / requires numeric operands",
                         )?,
@@ -354,12 +378,12 @@ impl Interpreter {
                     arguments.push(argument?);
                 }
                 let function = type_err(
-                    &expression,
+                    expression,
                     callee.function_value(),
                     "Call expression requires callee to be a function",
                 )?;
                 if arguments.len() == function.arity() {
-                    function.call(self, &arguments)
+                    function.call(self, arguments)
                 } else {
                     Err(InterpreterError::Expression {
                         expression: expression.clone(),

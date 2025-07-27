@@ -10,6 +10,7 @@ pub enum Statement {
     Expression(ExpressionStatement),
     Block(BlockStatement),
     Var(VarStatement),
+    Function(FunctionStatement),
 }
 
 pub type Stmt = Box<Statement>;
@@ -26,7 +27,7 @@ impl Statement {
         Self::If(IfStatement {
             condition,
             then_branch: Box::new(then_branch),
-            else_branch: else_branch.and_then(|e| Some(Box::new(e))),
+            else_branch: else_branch.map(Box::new),
         })
     }
     pub fn while_stmt(condition: Expr, body: Statement) -> Self {
@@ -47,6 +48,13 @@ impl Statement {
             initializer,
         })
     }
+    pub fn function(identifier: String, parameters: Vec<String>, body: Statement) -> Self {
+        Self::Function(FunctionStatement {
+            identifier,
+            parameters,
+            body: Box::new(body),
+        })
+    }
 }
 
 impl Display for Statement {
@@ -58,6 +66,7 @@ impl Display for Statement {
             Statement::Expression(stmt) => write!(f, "{}", stmt),
             Statement::Block(stmt) => write!(f, "{}", stmt),
             Statement::Var(stmt) => write!(f, "{}", stmt),
+            Statement::Function(stmt) => write!(f, "{}", stmt),
         }
     }
 }
@@ -109,11 +118,11 @@ pub struct BlockStatement {
 
 impl Display for BlockStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{\n")?;
+        writeln!(f, "{{")?;
         for statement in &self.statements {
-            write!(f, "{}\n", statement)?;
+            writeln!(f, "{}", statement)?;
         }
-        write!(f, "}}\n")
+        writeln!(f, "}}")
     }
 }
 
@@ -144,5 +153,24 @@ impl Display for VarStatement {
             ),
             None => write!(f, "var {identifier}", identifier = self.identifier,),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionStatement {
+    pub identifier: String,
+    pub parameters: Vec<String>,
+    pub body: Stmt,
+}
+
+impl Display for FunctionStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fun {identifier} (", identifier = self.identifier)?;
+        let mut separator = "";
+        for param in self.parameters.iter() {
+            write!(f, "{separator}{param}")?;
+            separator = ", ";
+        }
+        write!(f, ") {body}", body = self.body)
     }
 }

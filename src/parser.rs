@@ -68,17 +68,119 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         Ok(statements)
     }
 
-    // declaration    → varDecl | statement ;
+    // declaration    → funDecl | varDecl | statement ;
     pub fn declaration(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
             Some(token) => Ok(match token.value {
+                TokenValue::Fun => self.function_declaration()?,
                 TokenValue::Var => self.variable_declaration()?,
                 _ => {
                     self.rewind_token(token);
                     self.statement()?
                 }
             }),
-            None => Err(self.error(format!("Expected declaration, found EOF"), None)),
+            None => Err(self.error("Expected declaration, found EOF", None)),
+        }
+    }
+
+    // funDecl        → "fun" function ;
+    // function       → IDENTIFIER "(" parameters? ")" block ;
+    // parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+    pub fn function_declaration(&mut self) -> Result<Statement, LoxError> {
+        let identifier = match self.next_token() {
+            Some(Token {
+                value: TokenValue::Identifier(identifier),
+                context: _,
+            }) => identifier,
+            Some(Token { value, context: _ }) => {
+                return Err(self.error(
+                    format!("Expected identifier after \"fun\", found {value}"),
+                    None,
+                ))
+            }
+            None => return Err(self.error("Expected identifier after \"fun\", found EOF", None)),
+        };
+        match self.next_token() {
+            Some(Token {
+                value: TokenValue::LeftParen,
+                context: _,
+            }) => {}
+            Some(Token { value, context: _ }) => {
+                return Err(self.error(
+                    format!("Expected \"(\" before \"fun\" parameters, found {value}"),
+                    None,
+                ))
+            }
+            None => {
+                return Err(self.error("Expected \"(\" before \"fun\" parameters, found EOF", None))
+            }
+        }
+        let parameters = self.parameters()?;
+        match self.next_token() {
+            Some(Token {
+                value: TokenValue::RightParen,
+                context: _,
+            }) => {}
+            Some(Token { value, context: _ }) => {
+                return Err(self.error(
+                    format!("Expected \")\" after \"fun\" parameters, found {value}"),
+                    None,
+                ))
+            }
+            None => {
+                return Err(self.error("Expected \")\" after \"fun\" parameters, found EOF", None))
+            }
+        }
+        let body = match self.next_token() {
+            Some(Token {
+                value: TokenValue::LeftBrace,
+                context: _,
+            }) => self.block_statement()?,
+            Some(Token { value, context: _ }) => {
+                return Err(self.error(
+                    format!("Expected \"{{\" before \"fun\" body, found {value}"),
+                    None,
+                ))
+            }
+            None => return Err(self.error("Expected \"{{\" before \"fun\" body, found EOF", None)),
+        };
+        Ok(Statement::function(identifier, parameters, body))
+    }
+
+    // parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+    pub fn parameters(&mut self) -> Result<Vec<String>, LoxError> {
+        let mut params = Vec::with_capacity(16);
+        loop {
+            match self.next_token() {
+                Some(Token {
+                    value: TokenValue::Identifier(identifier),
+                    context: _,
+                }) => {
+                    if params.len() >= 255 {
+                        return Err(self.error(
+                            "Function definition with more than 255 parameters not supported.",
+                            None,
+                        ));
+                    }
+                    params.push(identifier);
+                    match self.next_token() {
+                        Some(Token {
+                            value: TokenValue::Comma,
+                            context: _,
+                        }) => {}
+                        Some(token) => {
+                            self.rewind_token(token);
+                            return Ok(params);
+                        }
+                        None => return Ok(params),
+                    }
+                }
+                Some(token) => {
+                    self.rewind_token(token);
+                    return Ok(params);
+                }
+                None => return Ok(params),
+            }
         }
     }
 
@@ -95,12 +197,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 ))
             }
-            None => {
-                return Err(self.error(
-                    format!("Expected identifier after \"var\", found EOF"),
-                    None,
-                ))
-            }
+            None => return Err(self.error("Expected identifier after \"var\", found EOF", None)),
         };
         match self.next_token() {
             Some(Token {
@@ -120,7 +217,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                         )),
                     },
                     None => Err(self.error(
-                        format!("Expected ';' after variable declaration statement, found EOF"),
+                        "Expected ';' after variable declaration statement, found EOF",
                         None,
                     )),
                 }
@@ -134,7 +231,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 None,
             )),
             None => Err(self.error(
-                format!("Expected ';' after variable declaration statement, found EOF"),
+                "Expected ';' after variable declaration statement, found EOF",
                 None,
             )),
         }
@@ -154,7 +251,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     self.expression_statement()?
                 }
             }),
-            None => Err(self.error(format!("Expected statement, found EOF"), None)),
+            None => Err(self.error("Expected statement, found EOF", None)),
         }
     }
 
@@ -172,10 +269,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 )),
             },
-            None => Err(self.error(
-                format!("Expected ';' after print statement, found EOF"),
-                None,
-            )),
+            None => Err(self.error("Expected ';' after print statement, found EOF", None)),
         }
     }
 
@@ -210,10 +304,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                 None,
                             )),
                         },
-                        None => {
-                            Err(self
-                                .error(format!("Expected ')' after if condition, found EOF"), None))
-                        }
+                        None => Err(self.error("Expected ')' after if condition, found EOF", None)),
                     }
                 }
                 _ => Err(self.error(
@@ -221,7 +312,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 )),
             },
-            None => Err(self.error(format!("Expected '(' after if, found EOF"), None)),
+            None => Err(self.error("Expected '(' after if, found EOF", None)),
         }
     }
 
@@ -245,10 +336,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                 None,
                             )),
                         },
-                        None => Err(self.error(
-                            format!("Expected ')' after while condition, found EOF"),
-                            None,
-                        )),
+                        None => {
+                            Err(self.error("Expected ')' after while condition, found EOF", None))
+                        }
                     }
                 }
                 _ => Err(self.error(
@@ -256,7 +346,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 )),
             },
-            None => Err(self.error(format!("Expected '(' after while, found EOF"), None)),
+            None => Err(self.error("Expected '(' after while, found EOF", None)),
         }
     }
 
@@ -284,9 +374,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                         }
                                     } else {
                                         Err(self.error(
-                                            format!(
-                                                "Expected ';' after for initializer, found EOF"
-                                            ),
+                                            "Expected ';' after for initializer, found EOF",
                                             None,
                                         ))
                                     }
@@ -296,26 +384,24 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                 let condition = match token.value {
                                     TokenValue::Semicolon => None,
                                     _ => {
-                                        {
-                                            self.rewind_token(token);
-                                            let expr = self.expression()?;
-                                            if let Some(token) = self.next_token() {
-                                                if token.value == TokenValue::Semicolon {
-                                                    Ok(Some(expr))
-                                                } else {
-                                                    Err(self.error(
+                                        self.rewind_token(token);
+                                        let expr = self.expression()?;
+                                        if let Some(token) = self.next_token() {
+                                            if token.value == TokenValue::Semicolon {
+                                                Ok(Some(expr))
+                                            } else {
+                                                Err(self.error(
                                                 format!("Expected ';' after for condition, found \"{}\"", token.value),
                                                 None,
                                             ))
-                                                }
-                                            } else {
-                                                Err(self.error(
-                                            format!("Expected ';' after for condition, found EOF"),
-                                            None,
-                                        ))
                                             }
-                                        }?
-                                    }
+                                        } else {
+                                            Err(self.error(
+                                                "Expected ';' after for condition, found EOF",
+                                                None,
+                                            ))
+                                        }
+                                    }?,
                                 };
                                 if let Some(token) = self.next_token() {
                                     let increment = match token.value {
@@ -334,9 +420,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                                 }
                                             } else {
                                                 Err(self.error(
-                                                format!("Expected ')' after for increment, found EOF"),
-                                                None,
-                                            ))
+                                                    "Expected ')' after for increment, found EOF",
+                                                    None,
+                                                ))
                                             }
                                         }?,
                                     };
@@ -358,21 +444,18 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                     Ok(body)
                                 } else {
                                     Err(self.error(
-                                    format!("Expected condition or ';' after for condition, found EOF"),
-                                    None,
-                                ))
+                                        "Expected condition or ';' after for condition, found EOF",
+                                        None,
+                                    ))
                                 }
                             } else {
                                 Err(self.error(
-                                format!("Expected condition or ';' after for initializer, found EOF"),
-                                None,
-                            ))
+                                    "Expected condition or ';' after for initializer, found EOF",
+                                    None,
+                                ))
                             }
                         } else {
-                            Err(self.error(
-                                format!("Expected initializer or ';' in for, found EOF"),
-                                None,
-                            ))
+                            Err(self.error("Expected initializer or ';' in for, found EOF", None))
                         }
                     }
                     _ => Err(self.error(
@@ -381,7 +464,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     )),
                 }
             }
-            None => Err(self.error(format!("Expected '(' after for, found EOF"), None)),
+            None => Err(self.error("Expected '(' after for, found EOF", None)),
         }
     }
 
@@ -397,10 +480,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 }
             }
         }
-        Err(self.error(
-            format!("Expected '}}' after block statement, found EOF"),
-            None,
-        ))
+        Err(self.error("Expected '}' after block statement, found EOF", None))
     }
 
     // exprStmt → expression ";" ;
@@ -417,10 +497,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 )),
             },
-            None => Err(self.error(
-                format!("Expected ';' after expression statement, found EOF"),
-                None,
-            )),
+            None => Err(self.error("Expected ';' after expression statement, found EOF", None)),
         }
     }
 
@@ -641,20 +718,20 @@ impl<S: Iterator<Item = Token>> Parser<S> {
             if let Some(token) = self.next_token() {
                 match &token.value {
                     TokenValue::RightParen => {
-                        if next_argument && !arguments.is_empty() {
-                            return Err(self.error(
-                                format!("Unexpected trailing ',' in function call arguments list"),
-                                None,
-                            ));
-                        }
+                        // We will allow trailing ',' in function call arguments list
+                        //if next_argument && !arguments.is_empty() {
+                        //    return Err(self.error(
+                        //        "Unexpected trailing ',' in function call arguments list",
+                        //        None,
+                        //    ));
+                        //}
                         return Ok(Expression::call(callee, arguments));
                     }
                     TokenValue::Comma => {
                         if next_argument {
-                            return Err(self.error(
-                                format!("Expected function call argument, found ','"),
-                                None,
-                            ));
+                            return Err(
+                                self.error("Expected function call argument, found ','", None)
+                            );
                         }
                         next_argument = true;
                     }
@@ -672,7 +749,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                         self.rewind_token(token);
                         if arguments.len() >= 255 {
                             return Err(self.error(
-                                format!("Function call with more than 255 arguments not supported"),
+                                "Function call with more than 255 arguments not supported",
                                 None,
                             ));
                         }
@@ -682,7 +759,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 }
             } else {
                 return Err(self.error(
-                    format!("Expected ',' or ')' after function call argument, found EOF"),
+                    "Expected ',' or ')' after function call argument, found EOF",
                     None,
                 ));
             }
@@ -721,7 +798,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                             ))
                         }
                     } else {
-                        Err(self.error(format!("Expected ')' after expression"), Some(token)))
+                        Err(self.error("Expected ')' after expression, found EOF", Some(token)))
                     }
                 }
                 _ => Err(self.error(
@@ -734,6 +811,6 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 )),
             };
         }
-        Err(self.error(format!("Expected expression, found EOF"), None))
+        Err(self.error("Expected expression, found EOF", None))
     }
 }

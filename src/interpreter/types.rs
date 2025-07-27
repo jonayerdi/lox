@@ -3,6 +3,7 @@ use std::{fmt::Display, rc::Rc};
 use crate::expression::LiteralValue;
 
 use crate::interpreter::{Interpreter, InterpreterError};
+use crate::statement::FunctionStatement;
 
 #[derive(Debug, Clone)]
 pub enum LoxValue {
@@ -96,14 +97,15 @@ impl Display for LoxValue {
 pub struct LoxFunction {
     function_name: String,
     function_arity: usize,
-    function: Rc<dyn Fn(&mut Interpreter, &[LoxValue]) -> Result<LoxValue, InterpreterError>>,
+    function: Rc<dyn Fn(&mut Interpreter, Vec<LoxValue>) -> Result<LoxValue, InterpreterError>>,
 }
 
 impl LoxFunction {
     pub fn new(
         name: impl ToString,
         arity: usize,
-        function: impl Fn(&mut Interpreter, &[LoxValue]) -> Result<LoxValue, InterpreterError> + 'static,
+        function: impl Fn(&mut Interpreter, Vec<LoxValue>) -> Result<LoxValue, InterpreterError>
+            + 'static,
     ) -> Self {
         Self {
             function_name: name.to_string(),
@@ -120,21 +122,39 @@ impl LoxFunction {
     pub fn call(
         &self,
         interpreter: &mut Interpreter,
-        arguments: &[LoxValue],
+        arguments: Vec<LoxValue>,
     ) -> Result<LoxValue, InterpreterError> {
         (self.function)(interpreter, arguments)
     }
 }
 
+impl From<FunctionStatement> for LoxFunction {
+    fn from(value: FunctionStatement) -> Self {
+        LoxFunction::new(
+            value.identifier,
+            value.parameters.len(),
+            move |interpreter, args| {
+                interpreter.env.enter();
+                for (param, arg) in value.parameters.iter().zip(args) {
+                    interpreter.env.set(param, arg);
+                }
+                interpreter.execute_statement(&value.body)?;
+                interpreter.env.exit();
+                Ok(LoxValue::Nil)
+            },
+        )
+    }
+}
+
 impl Display for LoxFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "<fun {}>", self.name())
     }
 }
 
 impl std::fmt::Debug for LoxFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "<fun {}>", self.name())
     }
 }
 
