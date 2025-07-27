@@ -6,6 +6,7 @@ use std::{
     error::Error,
     fmt::Display,
     io::{self, stderr, stdin, stdout, BufRead, Write},
+    ops::ControlFlow,
 };
 
 use crate::{
@@ -25,6 +26,7 @@ pub enum InterpreterError {
     Statement { statement: Statement, msg: String },
     Expression { expression: Expression, msg: String },
     NativeFunction { function: String, msg: String },
+    Return { value: LoxValue },
 }
 
 impl Display for InterpreterError {
@@ -39,6 +41,12 @@ impl Display for InterpreterError {
             }
             InterpreterError::NativeFunction { function, msg } => {
                 write!(f, "Error executing native function \"{function}\": {msg}")
+            }
+            InterpreterError::Return { value } => {
+                write!(
+                    f,
+                    "Error executing return statement: Returned {value} outside of a function"
+                )
             }
         }
     }
@@ -100,12 +108,18 @@ impl Interpreter {
 
     pub fn interpret(&mut self, statements: &[Statement]) -> Result<()> {
         for statement in statements {
-            self.execute_statement(statement)?;
+            if let ControlFlow::Break(value) = self.execute_statement(statement)? {
+                return Err(InterpreterError::Return { value });
+            }
         }
         Ok(())
     }
 
-    pub fn execute_statement(&mut self, statement: &Statement) -> Result<()> {
+    /// Executes a statement.
+    ///
+    /// Returns Ok(ControlFlow::Break(value)) in case of a return statement,
+    /// or Ok(ControlFlow::Continue()) otherwise.
+    pub fn execute_statement(&mut self, statement: &Statement) -> Result<ControlFlow<LoxValue>> {
         fn type_err<T>(
             statement: &Statement,
             result: core::result::Result<T, String>,
@@ -121,7 +135,7 @@ impl Interpreter {
             Statement::Print(print_stmt) => {
                 let value = self.evaluate_expression(&print_stmt.expression)?;
                 writeln!(self.stdout, "{}", value)?;
-                Ok(())
+                Ok(ControlFlow::Continue(()))
             }
             Statement::If(if_stmt) => {
                 let condition = self.evaluate_expression(&if_stmt.condition)?;
@@ -131,11 +145,12 @@ impl Interpreter {
                     "if statement requires boolean condition",
                 )?;
                 if condition {
-                    self.execute_statement(&if_stmt.then_branch)?;
+                    self.execute_statement(&if_stmt.then_branch)
                 } else if let Some(else_branch) = &if_stmt.else_branch {
-                    self.execute_statement(else_branch)?;
+                    self.execute_statement(else_branch)
+                } else {
+                    Ok(ControlFlow::Continue(()))
                 }
-                Ok(())
             }
             Statement::While(while_stmt) => loop {
                 let condition = self.evaluate_expression(&while_stmt.condition)?;
@@ -145,23 +160,29 @@ impl Interpreter {
                     "while statement requires boolean condition",
                 )?;
                 if condition {
-                    self.execute_statement(&while_stmt.body)?;
+                    let retval = self.execute_statement(&while_stmt.body)?;
+                    if retval.is_break() {
+                        return Ok(retval);
+                    }
                 } else {
-                    return Ok(());
+                    return Ok(ControlFlow::Continue(()));
                 }
             },
             Statement::Expression(expr_stmt) => {
                 let _value = self.evaluate_expression(&expr_stmt.expression)?;
                 //writeln!(output, "{}", value)?;
-                Ok(())
+                Ok(ControlFlow::Continue(()))
             }
             Statement::Block(block_stmt) => {
                 self.env.enter();
                 for statement in &block_stmt.statements {
-                    self.execute_statement(statement)?;
+                    let retval = self.execute_statement(statement)?;
+                    if retval.is_break() {
+                        return Ok(retval);
+                    }
                 }
                 self.env.exit();
-                Ok(())
+                Ok(ControlFlow::Continue(()))
             }
             Statement::Var(var_stmt) => {
                 let value = match &var_stmt.initializer {
@@ -169,7 +190,7 @@ impl Interpreter {
                     None => LoxValue::Nil,
                 };
                 self.env.set(&var_stmt.identifier, value);
-                Ok(())
+                Ok(ControlFlow::Continue(()))
             }
             Statement::Function(function_stmt) => {
                 let identifier = function_stmt.identifier.to_string();
@@ -177,7 +198,14 @@ impl Interpreter {
                 let function = function_stmt.into();
                 let function = LoxValue::Function(function);
                 self.env.set(identifier, function);
-                Ok(())
+                Ok(ControlFlow::Continue(()))
+            }
+            Statement::Return(return_stmt) => {
+                let value = match &return_stmt.value {
+                    Some(value) => self.evaluate_expression(value)?,
+                    None => LoxValue::Nil,
+                };
+                Ok(ControlFlow::Break(value))
             }
         }
     }

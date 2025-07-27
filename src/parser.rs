@@ -237,7 +237,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
         }
     }
 
-    // statement → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
+    // statement → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
     pub fn statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
             Some(token) => Ok(match token.value {
@@ -245,6 +245,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 TokenValue::If => self.if_statement()?,
                 TokenValue::While => self.while_statement()?,
                 TokenValue::For => self.for_statement()?,
+                TokenValue::Return => self.return_statement()?,
                 TokenValue::LeftBrace => self.block_statement()?,
                 _ => {
                     self.rewind_token(token);
@@ -466,6 +467,48 @@ impl<S: Iterator<Item = Token>> Parser<S> {
             }
             None => Err(self.error("Expected '(' after for, found EOF", None)),
         }
+    }
+
+    // returnStmt     → "return" expression? ";" ;
+    pub fn return_statement(&mut self) -> Result<Statement, LoxError> {
+        let value = match self.next_token() {
+            Some(Token {
+                value: TokenValue::Semicolon,
+                context: _,
+            }) => None,
+            Some(token) => {
+                self.rewind_token(token);
+                let value = self.expression()?;
+                match self.next_token() {
+                    Some(Token {
+                        value: TokenValue::Semicolon,
+                        context: _,
+                    }) => Some(value),
+                    Some(token) => {
+                        return Err(self.error(
+                            format!(
+                                "Expected ';' after return statement expression, found {}",
+                                token.value
+                            ),
+                            None,
+                        ))
+                    }
+                    None => {
+                        return Err(self.error(
+                            "Expected ';' after return statement expression, found EOF",
+                            None,
+                        ))
+                    }
+                }
+            }
+            None => {
+                return Err(self.error(
+                    "Expected expression or ';' after return statement, found EOF",
+                    None,
+                ))
+            }
+        };
+        Ok(Statement::return_stmt(value))
     }
 
     // block → "{" declaration* "}" ;

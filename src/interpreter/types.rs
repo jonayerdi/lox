@@ -138,9 +138,12 @@ impl From<FunctionStatement> for LoxFunction {
                 for (param, arg) in value.parameters.iter().zip(args) {
                     interpreter.env.set(param, arg);
                 }
-                interpreter.execute_statement(&value.body)?;
+                let retval = match interpreter.execute_statement(&value.body)? {
+                    std::ops::ControlFlow::Continue(()) => LoxValue::Nil,
+                    std::ops::ControlFlow::Break(retval) => retval,
+                };
                 interpreter.env.exit();
-                Ok(LoxValue::Nil)
+                Ok(retval)
             },
         )
     }

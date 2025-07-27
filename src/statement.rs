@@ -11,6 +11,7 @@ pub enum Statement {
     Block(BlockStatement),
     Var(VarStatement),
     Function(FunctionStatement),
+    Return(ReturnStatement),
 }
 
 pub type Stmt = Box<Statement>;
@@ -55,6 +56,9 @@ impl Statement {
             body: Box::new(body),
         })
     }
+    pub fn return_stmt(value: Option<Expr>) -> Self {
+        Self::Return(ReturnStatement { value })
+    }
 }
 
 impl Display for Statement {
@@ -67,6 +71,7 @@ impl Display for Statement {
             Statement::Block(stmt) => write!(f, "{}", stmt),
             Statement::Var(stmt) => write!(f, "{}", stmt),
             Statement::Function(stmt) => write!(f, "{}", stmt),
+            Statement::Return(stmt) => write!(f, "{}", stmt),
         }
     }
 }
@@ -172,5 +177,20 @@ impl Display for FunctionStatement {
             separator = ", ";
         }
         write!(f, ") {body}", body = self.body)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReturnStatement {
+    pub value: Option<Expr>,
+}
+
+impl Display for ReturnStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(value) = &self.value {
+            write!(f, "return {value}")
+        } else {
+            write!(f, "return")
+        }
     }
 }
