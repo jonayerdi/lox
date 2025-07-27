@@ -174,15 +174,16 @@ impl Interpreter {
                 Ok(ControlFlow::Continue(()))
             }
             Statement::Block(block_stmt) => {
+                let mut retval = ControlFlow::Continue(());
                 self.env.enter();
                 for statement in &block_stmt.statements {
-                    let retval = self.execute_statement(statement)?;
+                    retval = self.execute_statement(statement)?;
                     if retval.is_break() {
-                        return Ok(retval);
+                        break;
                     }
                 }
                 self.env.exit();
-                Ok(ControlFlow::Continue(()))
+                Ok(retval)
             }
             Statement::Var(var_stmt) => {
                 let value = match &var_stmt.initializer {
