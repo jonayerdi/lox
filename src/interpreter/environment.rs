@@ -68,19 +68,22 @@ impl Environment {
         variables
     }
     pub fn builtin_functions() -> impl Iterator<Item = LoxFunction> {
-        [LoxFunction::new(
-            "clock",
-            0,
-            |_interpreter, _args| match std::time::SystemTime::now()
-                .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            {
-                Ok(time) => Ok(LoxValue::Number(time.as_secs_f64())),
-                Err(error) => Err(InterpreterError::NativeFunction {
-                    function: format!("clock"),
-                    msg: format!("{error}"),
-                }),
-            },
-        )]
+        [
+            LoxFunction::new(
+                "clock",
+                0,
+                |_interpreter, _args| match std::time::SystemTime::now()
+                    .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                {
+                    Ok(time) => Ok(LoxValue::Number(time.as_secs_f64())),
+                    Err(error) => Err(InterpreterError::NativeFunction {
+                        function: format!("clock"),
+                        msg: format!("{error}"),
+                    }),
+                },
+            ),
+            LoxFunction::new("exit", 0, |_interpreter, _args| std::process::exit(0)),
+        ]
         .into_iter()
     }
 }
