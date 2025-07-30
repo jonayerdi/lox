@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, ops::ControlFlow, sync::LazyLock};
+use std::{fmt::Display, ops::ControlFlow};
 
 use crate::{
     context::{Position, PositionTracker},
@@ -6,26 +6,27 @@ use crate::{
     token::{Token, TokenContext, TokenValue},
 };
 
-static KEYWORDS: LazyLock<HashMap<&'static str, TokenValue>> = LazyLock::new(|| {
-    let mut m = HashMap::new();
-    m.insert("and", TokenValue::And);
-    m.insert("class", TokenValue::Class);
-    m.insert("else", TokenValue::Else);
-    m.insert("false", TokenValue::False);
-    m.insert("for", TokenValue::For);
-    m.insert("fun", TokenValue::Fun);
-    m.insert("if", TokenValue::If);
-    m.insert("nil", TokenValue::Nil);
-    m.insert("or", TokenValue::Or);
-    m.insert("print", TokenValue::Print);
-    m.insert("return", TokenValue::Return);
-    m.insert("super", TokenValue::Super);
-    m.insert("this", TokenValue::This);
-    m.insert("true", TokenValue::True);
-    m.insert("var", TokenValue::Var);
-    m.insert("while", TokenValue::While);
-    m
-});
+fn get_keyword(identifier: &str) -> Option<TokenValue> {
+    match identifier {
+        "and" => Some(TokenValue::And),
+        "class" => Some(TokenValue::Class),
+        "else" => Some(TokenValue::Else),
+        "false" => Some(TokenValue::False),
+        "for" => Some(TokenValue::For),
+        "fun" => Some(TokenValue::Fun),
+        "if" => Some(TokenValue::If),
+        "nil" => Some(TokenValue::Nil),
+        "or" => Some(TokenValue::Or),
+        "print" => Some(TokenValue::Print),
+        "return" => Some(TokenValue::Return),
+        "super" => Some(TokenValue::Super),
+        "this" => Some(TokenValue::This),
+        "true" => Some(TokenValue::True),
+        "var" => Some(TokenValue::Var),
+        "while" => Some(TokenValue::While),
+        _ => None,
+    }
+}
 
 pub type ScannerItem = Result<Token>;
 
@@ -136,7 +137,7 @@ impl<S: Iterator<Item = char>> Scanner<S> {
                 }
             }
         }
-        self.token(match KEYWORDS.get(identifier.as_str()) {
+        self.token(match get_keyword(identifier.as_str()) {
             Some(keyword_token) => keyword_token.clone(),
             None => TokenValue::Identifier(identifier),
         })
