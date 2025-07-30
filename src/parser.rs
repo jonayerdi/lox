@@ -32,7 +32,11 @@ impl<S: Iterator<Item = Token>> Parser<S> {
     }
 
     fn error<D: Display>(&self, msg: D, token: Option<Token>) -> LoxError {
-        LoxError::parse(msg, ExpressionContext::new(token))
+        LoxError::parse(false, msg, ExpressionContext::new(token))
+    }
+
+    fn error_eof<D: Display>(&self, msg: D, token: Option<Token>) -> LoxError {
+        LoxError::parse(true, msg, ExpressionContext::new(token))
     }
 
     /// Advances the parser to the next statement.
@@ -79,7 +83,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     self.statement()?
                 }
             }),
-            None => Err(self.error("Expected declaration, found EOF", None)),
+            None => Err(self.error_eof("Expected declaration, found EOF", None)),
         }
     }
 
@@ -98,7 +102,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 ))
             }
-            None => return Err(self.error("Expected identifier after \"fun\", found EOF", None)),
+            None => {
+                return Err(self.error_eof("Expected identifier after \"fun\", found EOF", None))
+            }
         };
         match self.next_token() {
             Some(Token {
@@ -112,7 +118,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 ))
             }
             None => {
-                return Err(self.error("Expected \"(\" before \"fun\" parameters, found EOF", None))
+                return Err(
+                    self.error_eof("Expected \"(\" before \"fun\" parameters, found EOF", None)
+                )
             }
         }
         let parameters = self.parameters()?;
@@ -128,7 +136,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 ))
             }
             None => {
-                return Err(self.error("Expected \")\" after \"fun\" parameters, found EOF", None))
+                return Err(
+                    self.error_eof("Expected \")\" after \"fun\" parameters, found EOF", None)
+                )
             }
         }
         let body = match self.next_token() {
@@ -142,7 +152,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 ))
             }
-            None => return Err(self.error("Expected \"{{\" before \"fun\" body, found EOF", None)),
+            None => {
+                return Err(self.error_eof("Expected \"{{\" before \"fun\" body, found EOF", None))
+            }
         };
         Ok(Statement::function(identifier, parameters, body))
     }
@@ -197,7 +209,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 ))
             }
-            None => return Err(self.error("Expected identifier after \"var\", found EOF", None)),
+            None => {
+                return Err(self.error_eof("Expected identifier after \"var\", found EOF", None))
+            }
         };
         match self.next_token() {
             Some(Token {
@@ -216,7 +230,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                             None,
                         )),
                     },
-                    None => Err(self.error(
+                    None => Err(self.error_eof(
                         "Expected ';' after variable declaration statement, found EOF",
                         None,
                     )),
@@ -230,7 +244,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 format!("Expected ';' after variable declaration statement, found {value}"),
                 None,
             )),
-            None => Err(self.error(
+            None => Err(self.error_eof(
                 "Expected ';' after variable declaration statement, found EOF",
                 None,
             )),
@@ -252,7 +266,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     self.expression_statement()?
                 }
             }),
-            None => Err(self.error("Expected statement, found EOF", None)),
+            None => Err(self.error_eof("Expected statement, found EOF", None)),
         }
     }
 
@@ -270,7 +284,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 )),
             },
-            None => Err(self.error("Expected ';' after print statement, found EOF", None)),
+            None => Err(self.error_eof("Expected ';' after print statement, found EOF", None)),
         }
     }
 
@@ -305,7 +319,9 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                 None,
                             )),
                         },
-                        None => Err(self.error("Expected ')' after if condition, found EOF", None)),
+                        None => {
+                            Err(self.error_eof("Expected ')' after if condition, found EOF", None))
+                        }
                     }
                 }
                 _ => Err(self.error(
@@ -313,55 +329,56 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 )),
             },
-            None => Err(self.error("Expected '(' after if, found EOF", None)),
+            None => Err(self.error_eof("Expected '(' after if, found EOF", None)),
         }
     }
 
     // whileStmt → "while" "(" expression ")" statement ;
     pub fn while_statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
-            Some(token) => match token.value {
-                TokenValue::LeftParen => {
-                    let condition = self.expression()?;
-                    match self.next_token() {
-                        Some(token) => match token.value {
-                            TokenValue::RightParen => {
-                                let body = self.statement()?;
-                                Ok(Statement::while_stmt(condition, body))
-                            }
-                            _ => Err(self.error(
-                                format!(
-                                    "Expected ')' after while condition, found \"{}\"",
-                                    token.value
-                                ),
-                                None,
-                            )),
-                        },
-                        None => {
-                            Err(self.error("Expected ')' after while condition, found EOF", None))
+            Some(token) => {
+                match token.value {
+                    TokenValue::LeftParen => {
+                        let condition = self.expression()?;
+                        match self.next_token() {
+                            Some(token) => match token.value {
+                                TokenValue::RightParen => {
+                                    let body = self.statement()?;
+                                    Ok(Statement::while_stmt(condition, body))
+                                }
+                                _ => Err(self.error(
+                                    format!(
+                                        "Expected ')' after while condition, found \"{}\"",
+                                        token.value
+                                    ),
+                                    None,
+                                )),
+                            },
+                            None => Err(self
+                                .error_eof("Expected ')' after while condition, found EOF", None)),
                         }
                     }
+                    _ => Err(self.error(
+                        format!("Expected '(' after while, found \"{}\"", token.value),
+                        None,
+                    )),
                 }
-                _ => Err(self.error(
-                    format!("Expected '(' after while, found \"{}\"", token.value),
-                    None,
-                )),
-            },
-            None => Err(self.error("Expected '(' after while, found EOF", None)),
+            }
+            None => Err(self.error_eof("Expected '(' after while, found EOF", None)),
         }
     }
 
     // forStmt → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
     pub fn for_statement(&mut self) -> Result<Statement, LoxError> {
         match self.next_token() {
-            Some(token) => {
-                match token.value {
-                    TokenValue::LeftParen => {
-                        if let Some(token) = self.next_token() {
-                            let initializer = match token.value {
-                                TokenValue::Semicolon => None,
-                                TokenValue::Var => Some(self.variable_declaration()?),
-                                _ => {
+            Some(token) => match token.value {
+                TokenValue::LeftParen => {
+                    if let Some(token) = self.next_token() {
+                        let initializer = match token.value {
+                            TokenValue::Semicolon => None,
+                            TokenValue::Var => Some(self.variable_declaration()?),
+                            _ => {
+                                {
                                     self.rewind_token(token);
                                     let decl = self.expression_statement()?;
                                     if let Some(token) = self.next_token() {
@@ -374,98 +391,98 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                                         ))
                                         }
                                     } else {
-                                        Err(self.error(
+                                        Err(self.error_eof(
                                             "Expected ';' after for initializer, found EOF",
+                                            None,
+                                        ))
+                                    }
+                                }?
+                            }
+                        };
+                        if let Some(token) = self.next_token() {
+                            let condition = match token.value {
+                                TokenValue::Semicolon => None,
+                                _ => {
+                                    self.rewind_token(token);
+                                    let expr = self.expression()?;
+                                    if let Some(token) = self.next_token() {
+                                        if token.value == TokenValue::Semicolon {
+                                            Ok(Some(expr))
+                                        } else {
+                                            Err(self.error(
+                                                format!("Expected ';' after for condition, found \"{}\"", token.value),
+                                                None,
+                                            ))
+                                        }
+                                    } else {
+                                        Err(self.error_eof(
+                                            "Expected ';' after for condition, found EOF",
                                             None,
                                         ))
                                     }
                                 }?,
                             };
                             if let Some(token) = self.next_token() {
-                                let condition = match token.value {
+                                let increment = match token.value {
                                     TokenValue::Semicolon => None,
                                     _ => {
                                         self.rewind_token(token);
                                         let expr = self.expression()?;
                                         if let Some(token) = self.next_token() {
-                                            if token.value == TokenValue::Semicolon {
+                                            if token.value == TokenValue::RightParen {
                                                 Ok(Some(expr))
                                             } else {
                                                 Err(self.error(
-                                                format!("Expected ';' after for condition, found \"{}\"", token.value),
-                                                None,
-                                            ))
+                                                    format!("Expected ')' after for increment, found \"{}\"", token.value),
+                                                    None,
+                                                ))
                                             }
                                         } else {
-                                            Err(self.error(
-                                                "Expected ';' after for condition, found EOF",
+                                            Err(self.error_eof(
+                                                "Expected ')' after for increment, found EOF",
                                                 None,
                                             ))
                                         }
                                     }?,
                                 };
-                                if let Some(token) = self.next_token() {
-                                    let increment = match token.value {
-                                        TokenValue::Semicolon => None,
-                                        _ => {
-                                            self.rewind_token(token);
-                                            let expr = self.expression()?;
-                                            if let Some(token) = self.next_token() {
-                                                if token.value == TokenValue::RightParen {
-                                                    Ok(Some(expr))
-                                                } else {
-                                                    Err(self.error(
-                                                    format!("Expected ')' after for increment, found \"{}\"", token.value),
-                                                    None,
-                                                ))
-                                                }
-                                            } else {
-                                                Err(self.error(
-                                                    "Expected ')' after for increment, found EOF",
-                                                    None,
-                                                ))
-                                            }
-                                        }?,
-                                    };
-                                    let mut body = self.statement()?;
-                                    if let Some(increment) = increment {
-                                        body = Statement::block(vec![
-                                            body,
-                                            Statement::expression(increment),
-                                        ]);
-                                    }
-                                    let condition = match condition {
-                                        Some(condition) => condition,
-                                        None => Expression::literal(LiteralValue::Boolean(true)),
-                                    };
-                                    body = Statement::while_stmt(condition, body);
-                                    if let Some(initializer) = initializer {
-                                        body = Statement::block(vec![initializer, body]);
-                                    }
-                                    Ok(body)
-                                } else {
-                                    Err(self.error(
-                                        "Expected condition or ';' after for condition, found EOF",
-                                        None,
-                                    ))
+                                let mut body = self.statement()?;
+                                if let Some(increment) = increment {
+                                    body = Statement::block(vec![
+                                        body,
+                                        Statement::expression(increment),
+                                    ]);
                                 }
+                                let condition = match condition {
+                                    Some(condition) => condition,
+                                    None => Expression::literal(LiteralValue::Boolean(true)),
+                                };
+                                body = Statement::while_stmt(condition, body);
+                                if let Some(initializer) = initializer {
+                                    body = Statement::block(vec![initializer, body]);
+                                }
+                                Ok(body)
                             } else {
-                                Err(self.error(
-                                    "Expected condition or ';' after for initializer, found EOF",
+                                Err(self.error_eof(
+                                    "Expected condition or ';' after for condition, found EOF",
                                     None,
                                 ))
                             }
                         } else {
-                            Err(self.error("Expected initializer or ';' in for, found EOF", None))
+                            Err(self.error_eof(
+                                "Expected condition or ';' after for initializer, found EOF",
+                                None,
+                            ))
                         }
+                    } else {
+                        Err(self.error_eof("Expected initializer or ';' in for, found EOF", None))
                     }
-                    _ => Err(self.error(
-                        format!("Expected '(' after for, found \"{}\"", token.value),
-                        None,
-                    )),
                 }
-            }
-            None => Err(self.error("Expected '(' after for, found EOF", None)),
+                _ => Err(self.error(
+                    format!("Expected '(' after for, found \"{}\"", token.value),
+                    None,
+                )),
+            },
+            None => Err(self.error_eof("Expected '(' after for, found EOF", None)),
         }
     }
 
@@ -494,7 +511,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                         ))
                     }
                     None => {
-                        return Err(self.error(
+                        return Err(self.error_eof(
                             "Expected ';' after return statement expression, found EOF",
                             None,
                         ))
@@ -502,7 +519,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 }
             }
             None => {
-                return Err(self.error(
+                return Err(self.error_eof(
                     "Expected expression or ';' after return statement, found EOF",
                     None,
                 ))
@@ -523,7 +540,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 }
             }
         }
-        Err(self.error("Expected '}' after block statement, found EOF", None))
+        Err(self.error_eof("Expected '}' after block statement, found EOF", None))
     }
 
     // exprStmt → expression ";" ;
@@ -540,7 +557,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     None,
                 )),
             },
-            None => Err(self.error("Expected ';' after expression statement, found EOF", None)),
+            None => Err(self.error_eof("Expected ';' after expression statement, found EOF", None)),
         }
     }
 
@@ -801,7 +818,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                     }
                 }
             } else {
-                return Err(self.error(
+                return Err(self.error_eof(
                     "Expected ',' or ')' after function call argument, found EOF",
                     None,
                 ));
@@ -841,7 +858,7 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                             ))
                         }
                     } else {
-                        Err(self.error("Expected ')' after expression, found EOF", Some(token)))
+                        Err(self.error_eof("Expected ')' after expression, found EOF", Some(token)))
                     }
                 }
                 _ => Err(self.error(
@@ -854,6 +871,6 @@ impl<S: Iterator<Item = Token>> Parser<S> {
                 )),
             };
         }
-        Err(self.error("Expected expression, found EOF", None))
+        Err(self.error_eof("Expected expression, found EOF", None))
     }
 }

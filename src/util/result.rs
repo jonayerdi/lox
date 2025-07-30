@@ -14,6 +14,7 @@ pub enum LoxError {
         context: TokenContext,
     },
     Parse {
+        eof: bool,
         msg: String,
         context: ExpressionContext,
     },
@@ -35,8 +36,9 @@ impl LoxError {
             context,
         }
     }
-    pub fn parse<D: Display>(msg: D, context: ExpressionContext) -> Self {
+    pub fn parse<D: Display>(eof: bool, msg: D, context: ExpressionContext) -> Self {
         Self::Parse {
+            eof,
             msg: msg.to_string(),
             context,
         }
@@ -58,7 +60,11 @@ impl Display for LoxError {
         match self {
             LoxError::IO { error } => write!(f, "[ERROR(IO)] {error}"),
             LoxError::Scan { msg, context } => write!(f, "[ERROR(SCAN)] {msg} (at {context})"),
-            LoxError::Parse { msg, context } => write!(f, "[ERROR(PARSE)] {msg} (at {context})"),
+            LoxError::Parse {
+                eof: _eof,
+                msg,
+                context,
+            } => write!(f, "[ERROR(PARSE)] {msg} (at {context})"),
             LoxError::Interpret { msg } => write!(f, "[ERROR(INTERPRET)] {msg}"),
             LoxError::CLI { msg } => write!(f, "[ERROR(CLI)] {msg}"),
         }
@@ -75,33 +81,41 @@ impl From<std::io::Error> for LoxError {
 
 impl PartialEq for LoxError {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::IO { error: l_error }, Self::IO { error: r_error }) => {
-                l_error.to_string() == r_error.to_string()
-            }
-            (
-                Self::Scan {
-                    msg: l_msg,
-                    context: l_context,
-                },
-                Self::Scan {
+        match self {
+            LoxError::IO { error: l_error } => match other {
+                LoxError::IO { error: r_error } => l_error.to_string() == r_error.to_string(),
+                _ => false,
+            },
+            LoxError::Scan {
+                msg: l_msg,
+                context: l_context,
+            } => match other {
+                LoxError::Scan {
                     msg: r_msg,
                     context: r_context,
-                },
-            ) => l_msg == r_msg && l_context == r_context,
-            (
-                Self::Parse {
-                    msg: l_msg,
-                    context: l_context,
-                },
-                Self::Parse {
+                } => l_msg == r_msg && l_context == r_context,
+                _ => false,
+            },
+            LoxError::Parse {
+                eof: l_eof,
+                msg: l_msg,
+                context: l_context,
+            } => match other {
+                LoxError::Parse {
+                    eof: r_eof,
                     msg: r_msg,
                     context: r_context,
-                },
-            ) => l_msg == r_msg && l_context == r_context,
-            (Self::Interpret { msg: l_msg }, Self::Interpret { msg: r_msg }) => l_msg == r_msg,
-            (Self::CLI { msg: l_msg }, Self::CLI { msg: r_msg }) => l_msg == r_msg,
-            _ => false,
+                } => l_eof == r_eof && l_msg == r_msg && l_context == r_context,
+                _ => false,
+            },
+            LoxError::Interpret { msg: l_msg } => match other {
+                LoxError::Interpret { msg: r_msg } => l_msg == r_msg,
+                _ => false,
+            },
+            LoxError::CLI { msg: l_msg } => match other {
+                LoxError::CLI { msg: r_msg } => l_msg == r_msg,
+                _ => false,
+            },
         }
     }
 }
